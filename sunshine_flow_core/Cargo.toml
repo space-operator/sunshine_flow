@@ -1,0 +1,17 @@
+[package]
+name = "sunshine_flow_core"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+solana-sdk = "1.8.4"
+solana-client = "1.8.4"
+tiny-bip39 = "0.8.2"
+spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
+spl-memo = { version = "3.0.1", features = [ "no-entrypoint" ] }
+spl-associated-token-account = { version = "1.0.3", features = [ "no-entrypoint" ] }
+thiserror = "1.0.30"
+dashmap = "4.0.2"
+serde = "1.0.130"

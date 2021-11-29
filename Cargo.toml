@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "sunshine_flow_core",
+    "sunshine_flow_bin",
+]
