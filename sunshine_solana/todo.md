@@ -1,7 +1,9 @@
-1. go through blog
-2. create wallet
-3. visual contract interface
-    generates codes
+
+
+graph of commands
+
+
+http api
 
 
 

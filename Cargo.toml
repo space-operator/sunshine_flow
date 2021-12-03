@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "sunshine_flow_core",
+    "sunshine_solana",
     "sunshine_flow_bin",
 ]

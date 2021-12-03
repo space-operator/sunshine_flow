@@ -6,4 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sunshine_flow_core = { path = "../sunshine_flow_core" }
+sunshine_solana = { path = "../sunshine_solana" }
