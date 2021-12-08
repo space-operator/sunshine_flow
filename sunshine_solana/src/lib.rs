@@ -9,7 +9,9 @@ use commands::token::command_mint;
 use commands::transfer::command_transfer;
 use commands::Command;
 use dashmap::DashMap;
+use futures::stream::{Stream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
@@ -18,6 +20,8 @@ use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use std::collections::HashMap;
+use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
+use sunshine_core::store::Datastore;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
@@ -30,6 +34,9 @@ use tokio::time::Duration;
 
 mod commands;
 mod errors;
+
+type FlowId = GraphId;
+type CommandId = NodeId;
 
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;
 type Error = Box<dyn std::error::Error>;
@@ -47,14 +54,14 @@ struct Config {
     pub_keys: HashMap<String, String>,
 }
 
-struct FlowContext {
+struct FlowContext<'a> {
     exec_ctx: Arc<ExecutionContext>,
-    deployed: HashMap<String, oneshot::Sender<()>>,
-    stored: HashMap<String, Flow>,
+    deployed: HashMap<FlowId, oneshot::Sender<()>>,
+    db: &'a mut dyn Datastore,
 }
 
-impl FlowContext {
-    fn new(cfg: Config) -> Result<FlowContext, Error> {
+impl<'a> FlowContext<'a> {
+    fn new(cfg: Config, db: &mut dyn Datastore) -> Result<FlowContext, Error> {
         let keyring = cfg
             .keyring
             .into_iter()
@@ -85,29 +92,85 @@ impl FlowContext {
                 pub_keys,
             }),
             deployed: HashMap::new(),
-            stored: HashMap::new(),
+            db,
         })
     }
 
-    fn store_flow(&mut self, name: &str, flow: Flow) {
-        self.stored.insert(name.to_owned(), flow);
+    fn store_flow(&mut self, name: &str, flow: Flow) -> Result<(), Error> {
+        todo!();
+        // nodes property: start node
+        //
     }
 
-    fn undeploy_flow(&mut self, name: &str) -> Result<(), Error> {
+    fn undeploy_flow(&mut self, flow_id: FlowId) -> Result<(), Error> {
         let stop_signal = self
             .deployed
-            .remove(name)
+            .remove(&flow_id)
             .ok_or(Box::new(CustomError::FlowDoesntExist))?;
         stop_signal.send(()).unwrap();
         Ok(())
     }
 
-    fn deploy_flow(&mut self, period: Duration, name: &str) -> Result<(), Error> {
-        let flow = self
-            .stored
-            .get(name)
-            .ok_or(Box::new(CustomError::FlowDoesntExist))?
-            .clone();
+    // TODO not taking mutable reference
+
+    async fn read_flow(&self, flow_id: FlowId) -> Result<Flow, Error> {
+        let graph = self
+            .db
+            .execute(Action::Query(QueryKind::ReadGraph(flow_id)))
+            .await
+            .map_err(Box::new)?
+            .into_graph()
+            .unwrap();
+
+        let mut start_commands = Vec::new();
+
+        let commands = futures::stream::iter(graph.nodes.into_iter());
+
+        let commands: Result<HashMap<_, _>, Error> = commands
+            .then(|node| async move {
+                let command =
+                    serde_json::from_value(node.properties.remove("COMMAND").unwrap()).unwrap();
+
+                if node.properties.get("START_COMMAND_MARKER").is_some() {
+                    start_commands.push(node.node_id);
+                }
+
+                let next = futures::stream::iter(node.outbound_edges.into_iter());
+
+                let next: Result<Vec<_>, Error> = next
+                    .then(|edge| async move {
+                        let props = self
+                            .db
+                            .execute(Action::Query(QueryKind::ReadEdgeProperties(edge)))
+                            .await?
+                            .into_properties()
+                            .unwrap();
+
+                        Ok(Next {
+                            id: edge.to,
+                            cond: props.get("COND").map(|cond| cond.as_bool().unwrap()),
+                        })
+                    })
+                    .try_collect()
+                    .await;
+
+                let next = next?;
+
+                Ok((node.node_id, CommandEntry { command, next }))
+            })
+            .try_collect()
+            .await;
+
+        let commands = commands?;
+
+        Ok(Flow {
+            start_commands,
+            commands,
+        })
+    }
+
+    async fn deploy_flow(&mut self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
+        let flow = self.read_flow(flow_id).await?;
 
         let mut interval = tokio::time::interval(period);
 
@@ -129,7 +192,7 @@ impl FlowContext {
                     .unwrap();
 
                     if let Err(e) = res {
-                        eprintln!("error while running flow: {}", e);
+                        eprintln!("error while deserializerunning flow: {}", e);
                     }
                 });
             }
@@ -144,7 +207,7 @@ impl FlowContext {
             }
         });
 
-        self.deployed.insert(name.to_owned(), send_stop_signal);
+        self.deployed.insert(flow_id, send_stop_signal);
 
         Ok(())
     }
@@ -174,7 +237,20 @@ impl ExecutionContext {
 
 #[derive(Clone)]
 struct Flow {
-    commands: Vec<Command>,
+    start_commands: Vec<CommandId>,
+    commands: HashMap<CommandId, CommandEntry>,
+}
+
+#[derive(Deserialize, Clone)]
+struct CommandEntry {
+    command: Command,
+    next: Vec<Next>,
+}
+
+#[derive(Deserialize, Clone, Copy)]
+struct Next {
+    cond: Option<bool>,
+    id: CommandId,
 }
 
 impl Flow {

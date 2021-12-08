@@ -1,0 +1,13 @@
+[package]
+name = "sunshine_indra"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indradb-lib = { version = "2", features = ["rocksdb-datastore"] }
+serde_json = "1.0.68"
+uuid = { version = "0.8", features = ["v4"] }
+thiserror = "1.0.30"
+async-trait = "0.1.51"
+futures = "0.3.17"
+sunshine_core = { path = "../sunshine_core" }

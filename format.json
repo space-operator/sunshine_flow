@@ -1,0 +1,29 @@
+// {
+//     "properties": {
+//         "name": "",
+//         "command": {
+//             "RequestAirdrop": {
+//                 "keypair_name": "me",
+//                 "gen_keypair": {
+//                     "seed_phrase"
+//                 }
+//             }
+//         }
+//     }
+// }
+// //                    Command::GenerateKeypair(name, gen_keypair) => {
+// //    RequestAirdrop(String, u64),
+// // Command::GenerateKeypair(name, gen_keypair) => {
+// //     if exec_ctx.keyring.contains_key(name) {
+// //         return Err(Box::new(CustomError::KeypairAlreadyExistsInKeyring));
+// //     }
+// //     if exec_ctx.pub_keys.contains_key(name) {
+// //         return Err(Box::new(CustomError::PubkeyAlreadyExists));
+// //     }
+// //     let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
+// //     // let keypair = Arc::new(keypair);
+// //     exec_ctx.pub_keys.insert(name.clone(), keypair.pubkey());
+// //     exec_ctx.keyring.insert(name.clone(), Arc::new(keypair));
+// //     Ok(CommandResponse::Success)
+// // }
+// //    GenerateKeypair(String, GenerateKeypair),
