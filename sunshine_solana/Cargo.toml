@@ -21,3 +21,4 @@ pathfinding = "2.2.2"
 futures = "0.3.18"
 
 sunshine_core = { path = "../sunshine_core" }
+sunshine_indra = { path = "../sunshine_indra" }

@@ -1,6 +1,8 @@
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 use indradb::{
-    Datastore as IndraDatastore, EdgeKey, EdgePropertyQuery, RangeVertexQuery, RocksdbDatastore,
+    Datastore as IndraDatastore, EdgeKey, EdgePropertyQuery, RangeVertexQuery, SledDatastore,
     SpecificEdgeQuery, SpecificVertexQuery, Transaction, Type, Vertex, VertexPropertyQuery,
     VertexQuery, VertexQueryExt,
 };
@@ -29,24 +31,23 @@ pub struct DbConfig {
     pub db_path: String,
 }
 
-#[derive(Debug)]
 pub struct DB {
-    source: RocksdbDatastore,
+    source: SledDatastore,
     root_node_type: Type,
-    undo: Vec<Action>,
-    redo: Vec<Action>,
-    history: Vec<Action>,
+    undo: Arc<Mutex<Vec<Action>>>,
+    redo: Arc<Mutex<Vec<Action>>>,
+    history: Arc<Mutex<Vec<Action>>>,
 }
 
 impl DB {
     pub fn new(cfg: &DbConfig) -> Result<DB> {
-        let rocks_db = RocksdbDatastore::new(&cfg.db_path, None).map_err(Error::DatastoreCreate)?;
+        let rocks_db = SledDatastore::new(&cfg.db_path).map_err(Error::DatastoreCreate)?;
         let db = DB {
             source: rocks_db,
             root_node_type: Type::new(GRAPH_ROOT_TYPE).unwrap(),
-            undo: Vec::new(),
-            redo: Vec::new(),
-            history: Vec::new(),
+            undo: Arc::new(Mutex::new(Vec::new())),
+            redo: Arc::new(Mutex::new(Vec::new())),
+            history: Arc::new(Mutex::new(Vec::new())),
         };
         Ok(db)
     }
@@ -82,16 +83,16 @@ impl DB {
 
 #[async_trait]
 impl Datastore for DB {
-    fn undo_buf(&mut self) -> &mut Vec<Action> {
-        &mut self.undo
+    fn undo_buf(&self) -> Arc<Mutex<Vec<Action>>> {
+        self.undo.clone()
     }
 
-    fn redo_buf(&mut self) -> &mut Vec<Action> {
-        &mut self.redo
+    fn redo_buf(&self) -> Arc<Mutex<Vec<Action>>> {
+        self.redo.clone()
     }
 
-    fn history_buf(&mut self) -> &mut Vec<Action> {
-        &mut self.history
+    fn history_buf(&self) -> Arc<Mutex<Vec<Action>>> {
+        self.history.clone()
     }
 
     async fn update_state_id(&self, graph_id: Uuid) -> Result<()> {

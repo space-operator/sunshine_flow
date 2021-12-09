@@ -9,6 +9,7 @@ use commands::token::command_mint;
 use commands::transfer::command_transfer;
 use commands::Command;
 use dashmap::DashMap;
+use futures::future::{BoxFuture, FutureExt};
 use futures::stream::{Stream, StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -20,8 +21,13 @@ use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use std::collections::HashMap;
+use sunshine_core::msg::MutateKind;
 use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
 use sunshine_core::store::Datastore;
+use sunshine_indra::store::DbConfig;
+use sunshine_indra::store::DB;
+
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
@@ -54,14 +60,14 @@ struct Config {
     pub_keys: HashMap<String, String>,
 }
 
-struct FlowContext<'a> {
+struct FlowContext {
     exec_ctx: Arc<ExecutionContext>,
-    deployed: HashMap<FlowId, oneshot::Sender<()>>,
-    db: &'a mut dyn Datastore,
+    deployed: DashMap<FlowId, oneshot::Sender<()>>,
+    db: Arc<dyn Datastore>,
 }
 
-impl<'a> FlowContext<'a> {
-    fn new(cfg: Config, db: &mut dyn Datastore) -> Result<FlowContext, Error> {
+impl FlowContext {
+    fn new(cfg: Config, db: Arc<dyn Datastore>) -> Result<FlowContext, Error> {
         let keyring = cfg
             .keyring
             .into_iter()
@@ -91,19 +97,13 @@ impl<'a> FlowContext<'a> {
                 keyring,
                 pub_keys,
             }),
-            deployed: HashMap::new(),
+            deployed: DashMap::new(),
             db,
         })
     }
 
-    fn store_flow(&mut self, name: &str, flow: Flow) -> Result<(), Error> {
-        todo!();
-        // nodes property: start node
-        //
-    }
-
-    fn undeploy_flow(&mut self, flow_id: FlowId) -> Result<(), Error> {
-        let stop_signal = self
+    fn undeploy_flow(&self, flow_id: FlowId) -> Result<(), Error> {
+        let (_, stop_signal) = self
             .deployed
             .remove(&flow_id)
             .ok_or(Box::new(CustomError::FlowDoesntExist))?;
@@ -122,46 +122,58 @@ impl<'a> FlowContext<'a> {
             .into_graph()
             .unwrap();
 
-        let mut start_commands = Vec::new();
+        let (tx, mut rx) = mpsc::unbounded_channel();
 
         let commands = futures::stream::iter(graph.nodes.into_iter());
 
         let commands: Result<HashMap<_, _>, Error> = commands
-            .then(|node| async move {
-                let command =
-                    serde_json::from_value(node.properties.remove("COMMAND").unwrap()).unwrap();
-
-                if node.properties.get("START_COMMAND_MARKER").is_some() {
-                    start_commands.push(node.node_id);
-                }
-
-                let next = futures::stream::iter(node.outbound_edges.into_iter());
-
-                let next: Result<Vec<_>, Error> = next
-                    .then(|edge| async move {
-                        let props = self
-                            .db
-                            .execute(Action::Query(QueryKind::ReadEdgeProperties(edge)))
-                            .await?
-                            .into_properties()
+            .then(|mut node| {
+                let tx = tx.clone();
+                async move {
+                    let command =
+                        serde_json::from_value(node.properties.remove(COMMAND_MARKER).unwrap())
                             .unwrap();
 
-                        Ok(Next {
-                            id: edge.to,
-                            cond: props.get("COND").map(|cond| cond.as_bool().unwrap()),
+                    if node.properties.get(START_COMMAND_MARKER).is_some() {
+                        tx.send(node.node_id).unwrap();
+                    }
+
+                    let next = futures::stream::iter(node.outbound_edges.into_iter());
+
+                    let next: Result<Vec<_>, Error> = next
+                        .then(|edge| async move {
+                            let props = self
+                                .db
+                                .execute(Action::Query(QueryKind::ReadEdgeProperties(edge)))
+                                .await?
+                                .into_properties()
+                                .unwrap();
+
+                            Ok(Next {
+                                id: edge.to,
+                                cond: props.get("COND").map(|cond| cond.as_bool().unwrap()),
+                            })
                         })
-                    })
-                    .try_collect()
-                    .await;
+                        .try_collect()
+                        .await;
 
-                let next = next?;
+                    let next = next?;
 
-                Ok((node.node_id, CommandEntry { command, next }))
+                    Ok((node.node_id, CommandEntry { command, next }))
+                }
             })
             .try_collect()
             .await;
 
         let commands = commands?;
+
+        let mut start_commands = Vec::new();
+
+        std::mem::drop(tx);
+
+        while let Some(cmd_id) = rx.recv().await {
+            start_commands.push(cmd_id);
+        }
 
         Ok(Flow {
             start_commands,
@@ -169,8 +181,10 @@ impl<'a> FlowContext<'a> {
         })
     }
 
-    async fn deploy_flow(&mut self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
+    async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
         let flow = self.read_flow(flow_id).await?;
+
+        println!("{:#?}", flow);
 
         let mut interval = tokio::time::interval(period);
 
@@ -185,15 +199,7 @@ impl<'a> FlowContext<'a> {
                 println!("tick");
 
                 tokio::spawn(async move {
-                    let res = tokio::task::spawn_blocking(move || {
-                        flow.run(exec_ctx.clone()).map_err(|e| e.to_string())
-                    })
-                    .await
-                    .unwrap();
-
-                    if let Err(e) = res {
-                        eprintln!("error while deserializerunning flow: {}", e);
-                    }
+                    flow.run(exec_ctx.clone()).await;
                 });
             }
         };
@@ -235,38 +241,73 @@ impl ExecutionContext {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Flow {
     start_commands: Vec<CommandId>,
     commands: HashMap<CommandId, CommandEntry>,
 }
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, Debug)]
 struct CommandEntry {
     command: Command,
     next: Vec<Next>,
 }
 
-#[derive(Deserialize, Clone, Copy)]
+#[derive(Deserialize, Clone, Copy, Debug)]
 struct Next {
     cond: Option<bool>,
     id: CommandId,
 }
 
-impl Flow {
-    pub fn run(&self, exec_ctx: Arc<ExecutionContext>) -> Result<CommandResponse, Error> {
-        for cmd in self.commands.iter() {
-            self.run_command(cmd, exec_ctx.clone())?;
-        }
+// https://rust-lang.github.io/async-book/07_workarounds/04_recursion.html
 
-        Ok(CommandResponse::Success)
+impl Flow {
+    pub async fn run(self: Arc<Self>, exec_ctx: Arc<ExecutionContext>) {
+        for cmd_id in self.start_commands.iter() {
+            self.clone().run_entry(*cmd_id, exec_ctx.clone()).await;
+        }
     }
 
-    fn run_command(
+    fn run_entry(
+        self: Arc<Self>,
+        id: CommandId,
+        exec_ctx: Arc<ExecutionContext>,
+    ) -> BoxFuture<'static, ()> {
+        async move {
+            let entry = self.commands.get(&id).unwrap();
+
+            println!("RUNNING COMMAND");
+
+            if let Err(e) = self
+                .clone()
+                .run_command(&entry.command, exec_ctx.clone())
+                .await
+            {
+                eprintln!("error while running entry: {}", e);
+            }
+
+            for next in entry.next.iter() {
+                match next.cond {
+                    Some(true) | None => {
+                        let exec_ctx = exec_ctx.clone();
+                        let other = self.clone();
+                        let id: CommandId = next.id;
+                        tokio::spawn(async move { other.run_entry(id, exec_ctx).await });
+                    }
+                    Some(false) => (),
+                }
+            }
+        }
+        .boxed()
+    }
+
+    async fn run_command(
         &self,
         cmd: &Command,
         exec_ctx: Arc<ExecutionContext>,
     ) -> Result<CommandResponse, Error> {
+        println!("{:#?}", cmd);
+
         match cmd {
             Command::GenerateKeypair(name, gen_keypair) => {
                 if exec_ctx.keyring.contains_key(name) {
@@ -456,6 +497,10 @@ impl Flow {
 
                 Ok(CommandResponse::Success)
             }
+            Command::Print(s) => {
+                println!("{}", s);
+                Ok(CommandResponse::Success)
+            }
         }
     }
 }
@@ -506,108 +551,52 @@ fn execute_instructions(
 
 // gui app
 
+const START_COMMAND_MARKER: &str = "START_COMMAND_MARKER";
+const COMMAND_MARKER: &str = "COMMAND_MARKER";
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_flow_ctx() {
-    let mut keyring = HashMap::new();
-
-    keyring.insert(
-        "me".to_owned(),
-        GenerateKeypair {
-            passphrase: "pass".into(),
-            seed_phrase: "beach soldier piano click essay sock stable cover angle wear aunt advice"
-                .into(),
-        },
-    );
-
-    let mut ctx = FlowContext::new(Config {
-        url: "https://api.devnet.solana.com".to_owned(),
-        keyring,
-        pub_keys: HashMap::new(),
+    let store = sunshine_indra::store::DB::new(&sunshine_indra::store::DbConfig {
+        db_path: "test_indra_db_flow_ctx".to_owned(),
     })
     .unwrap();
 
-    let flow = Flow {
-        commands: vec![Command::RequestAirdrop("me".to_owned(), 1_000_000_000)],
-    };
+    let store = Arc::new(store);
 
-    ctx.store_flow("flow1", flow);
-
-    ctx.deploy_flow(Duration::from_secs(5), "flow1").unwrap();
-
-    ctx.undeploy_flow("flow1").unwrap();
-
-    // https://explorer.solana.com/address/9B5XszUGdMaxCZ7uSQhPzdks5ZQSmWxrmzCSvtJ6Ns6g?cluster=devnet
-    // https://explorer.solana.com/address/7W3KHiYzPZjy2Be4NyZQi1PDQE152MXrBbivYKGLsmrS?cluster=devnet
-    // https://explorer.solana.com/address/7zq7kpQ5u9TYQVq6nWBbnWui9bACVGsd9dCrFYkAGH6M?cluster=devnet
-    //https://github.com/solana-labs/token-list
-    //https://github.com/solana-labs/solana/blob/b8ac6c1889d93e10967ddac850f9dd8c5b1c5c95/explorer/src/pages/AccountDetailsPage.tsx
-    // 1. wallet
-    //      add accounts
-    // 2. create token account
-
-    //let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English);
-    //panic!("{}", mnemonic.phrase());
-    /*
-    let seed_phrase = "beach soldier piano click essay sock stable cover angle wear aunt advice";
-    let keypair = generate_keypair("", seed_phrase).unwrap();
-    let client = RpcClient::new("https://api.devnet.solana.com".to_owned());
-    let user = keypair.pubkey();
-    let seed_phrase = "guard gun term bless spare iron miss flee solid forum bring will";
-    let token_keypair = generate_keypair("", seed_phrase).unwrap();
-    let token = token_keypair.pubkey();
-    println!("Creating token {token}");
-    let seed_phrase = "risk foster path suit lecture fit ancient allow major reward open favorite";
-    let custom_token_account_keypair = generate_keypair("", seed_phrase).unwrap();
-    let custom_token_account = custom_token_account_keypair.pubkey();
-    println!("custom token account1: {custom_token_account}");
-    let seed_phrase =
-        "property space future road athlete various frame doll evolve stuff aim hidden";
-    let custom_token_account_keypair2 = generate_keypair("", seed_phrase).unwrap();
-    let custom_token_account2 = custom_token_account_keypair2.pubkey();
-    println!("custom token account2: {custom_token_account2}");
-    println!("creating account: {custom_token_account2}");
-    let (minimum_balance_for_rent_exemption, instructions) =
-        command_create_account(&client, user, token, user, Some(custom_token_account2)).unwrap();
-    let signers: Vec<&dyn Signer> = vec![&keypair, &custom_token_account_keypair2];
-    execute_instructions(
-        &signers,
-        &client,
-        &user,
-        &instructions,
-        minimum_balance_for_rent_exemption,
-    );
-    println!("Minting token {token}");
-    let (minimum_balance_for_rent_exemption, instructions) =
-        command_mint(&client, token, 120.0, custom_token_account, user).unwrap();
-    let signers: Vec<&dyn Signer> = vec![&keypair, &token_keypair];
-    execute_instructions(
-        &signers,
-        &client,
-        &user,
-        &instructions,
-        minimum_balance_for_rent_exemption,
-    );
-    println!("sending money from {custom_token_account} to {custom_token_account2}");
-    let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
-        &client,
-        &custom_token_account,
-        token,
-        24.0,
-        custom_token_account2,
-        Some(custom_token_account),
-        user,
-        true,
-        true,
-        Some("SENDING MONEY TO SECOND ACCOUNT".to_owned()),
+    let flow_ctx = FlowContext::new(
+        Config {
+            url: "https://api.devnet.solana.com".into(),
+            keyring: HashMap::new(),
+            pub_keys: HashMap::new(),
+        },
+        store.clone(),
     )
     .unwrap();
-    let signers: Vec<&dyn Signer> = vec![&keypair, &custom_token_account_keypair];
-    execute_instructions(
-        &signers,
-        &client,
-        &user,
-        &instructions,
-        minimum_balance_for_rent_exemption,
-    ).unwrap();
-    */
+
+    let graph_id = store
+        .execute(Action::CreateGraph(Default::default()))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    let mut props = serde_json::Map::new();
+
+    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Print("hello2".into())).unwrap(),
+    );
+
+    store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap();
+
+    flow_ctx
+        .deploy_flow(Duration::from_secs(5), graph_id)
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_secs(11)).await;
 }

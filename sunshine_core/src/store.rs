@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 use uuid::Uuid;
 
@@ -17,17 +19,17 @@ pub enum Operation {
 
 #[async_trait]
 pub trait Datastore: Send + Sync {
-    fn undo_buf(&mut self) -> &mut Vec<Action>;
+    fn undo_buf(&self) -> Arc<Mutex<Vec<Action>>>;
 
-    fn redo_buf(&mut self) -> &mut Vec<Action>;
+    fn redo_buf(&self) -> Arc<Mutex<Vec<Action>>>;
 
-    fn history_buf(&mut self) -> &mut Vec<Action>;
+    fn history_buf(&self) -> Arc<Mutex<Vec<Action>>>;
 
-    async fn execute(&mut self, msg: Action) -> Result<Reply> {
+    async fn execute(&self, msg: Action) -> Result<Reply> {
         self.execute_impl(msg, Operation::Other).await
     }
 
-    async fn execute_impl(&mut self, msg: Action, operation: Operation) -> Result<Reply> {
+    async fn execute_impl(&self, msg: Action, operation: Operation) -> Result<Reply> {
         let (reverse_msg, reply) = match msg.clone() {
             Action::CreateGraph(properties) => self
                 .create_graph(properties)
@@ -44,13 +46,23 @@ pub trait Datastore: Send + Sync {
             Action::Query(read_only) => (None, self.execute_read_only(read_only).await?),
             Action::DeleteGraph(_) => todo!(),
             Action::Undo => {
-                let reverse_msg = self.undo_buf().pop().ok_or(Error::UndoBufferEmpty)?;
+                let reverse_msg = self
+                    .undo_buf()
+                    .lock()
+                    .unwrap()
+                    .pop()
+                    .ok_or(Error::UndoBufferEmpty)?;
                 self.execute_impl(reverse_msg, Operation::Undo)
                     .await
                     .map(|reply| (None, reply))?
             }
             Action::Redo => {
-                let reverse_msg = self.redo_buf().pop().ok_or(Error::RedoBufferEmpty)?;
+                let reverse_msg = self
+                    .redo_buf()
+                    .lock()
+                    .unwrap()
+                    .pop()
+                    .ok_or(Error::RedoBufferEmpty)?;
                 self.execute_impl(reverse_msg, Operation::Redo)
                     .await
                     .map(|reply| (None, reply))?
@@ -60,15 +72,15 @@ pub trait Datastore: Send + Sync {
         if let Some(reverse_msg) = reverse_msg {
             match operation {
                 Operation::Other => {
-                    self.redo_buf().clear();
-                    self.undo_buf().push(reverse_msg);
+                    self.redo_buf().lock().unwrap().clear();
+                    self.undo_buf().lock().unwrap().push(reverse_msg);
                 }
-                Operation::Redo => self.undo_buf().push(reverse_msg),
-                Operation::Undo => self.redo_buf().push(reverse_msg),
+                Operation::Redo => self.undo_buf().lock().unwrap().push(reverse_msg),
+                Operation::Undo => self.redo_buf().lock().unwrap().push(reverse_msg),
             }
         }
 
-        self.history_buf().push(msg);
+        self.history_buf().lock().unwrap().push(msg);
 
         Ok(reply)
     }

@@ -24,4 +24,5 @@ pub enum Command {
     MintToken(MintToken),
     RequestAirdrop(String, u64),
     Transfer(Transfer),
+    Print(String),
 }
