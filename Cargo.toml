@@ -6,4 +6,5 @@ members = [
     "sunshine_indra",
     "sunshine_dgraph",
     "sunshine_local",
+    "sunshine_flow",
 ]

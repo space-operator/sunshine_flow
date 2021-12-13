@@ -3250,6 +3250,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sunshine_flow"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "sunshine_indra"
 version = "0.1.0"
 dependencies = [

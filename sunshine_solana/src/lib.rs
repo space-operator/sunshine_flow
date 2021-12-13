@@ -21,6 +21,7 @@ use solana_sdk::signer::keypair::Keypair;
 use solana_sdk::signer::Signer;
 use solana_sdk::transaction::Transaction;
 use std::collections::HashMap;
+use sunshine_core::msg::CreateEdge;
 use sunshine_core::msg::MutateKind;
 use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
 use sunshine_core::store::Datastore;
@@ -122,67 +123,54 @@ impl FlowContext {
             .into_graph()
             .unwrap();
 
-        let (tx, mut rx) = mpsc::unbounded_channel();
+        let nodes = futures::stream::iter(graph.nodes.iter()));
 
-        let commands = futures::stream::iter(graph.nodes.into_iter());
-
-        let commands: Result<HashMap<_, _>, Error> = commands
-            .then(|mut node| {
+        let nodes: Result<HashMap<_, _>, Error> = nodes
+            .then(|node| {
                 let tx = tx.clone();
                 async move {
-                    let command =
-                        serde_json::from_value(node.properties.remove(COMMAND_MARKER).unwrap())
+                    let cmd: Command =
+                        serde_json::from_value(node.properties.get(COMMAND_MARKER).unwrap().clone())
                             .unwrap();
 
-                    if node.properties.get(START_COMMAND_MARKER).is_some() {
-                        tx.send(node.node_id).unwrap();
-                    }
-
-                    let next = futures::stream::iter(node.outbound_edges.into_iter());
-
-                    let next: Result<Vec<_>, Error> = next
-                        .then(|edge| async move {
-                            let props = self
-                                .db
-                                .execute(Action::Query(QueryKind::ReadEdgeProperties(edge)))
-                                .await?
-                                .into_properties()
-                                .unwrap();
-
-                            Ok(Next {
-                                id: edge.to,
-                                cond: props.get("COND").map(|cond| cond.as_bool().unwrap()),
-                            })
-                        })
-                        .try_collect()
-                        .await;
-
-                    let next = next?;
-
-                    Ok((node.node_id, CommandEntry { command, next }))
+                    Ok((
+                        node.node_id,
+                        Node {
+                            inputs: Vec::new(),
+                            outputs: Vec::new(),
+                            cmd,
+                        },
+                    ))
                 }
             })
             .try_collect()
             .await;
 
-        let commands = commands?;
+        let nodes = nodes?;
 
-        let mut start_commands = Vec::new();
+        let mut start_nodes = Vec::new();
 
-        std::mem::drop(tx);
-
-        while let Some(cmd_id) = rx.recv().await {
-            start_commands.push(cmd_id);
+        for node in graph.nodes.iter() {
+            for edge in node.outbound_edges.iter() {
+                let (tx, rx) = mpsc::unbounded();
+                nodes.get_mut(edge.from).unwrap().outputs.push(tx);
+                nodes.get_mut(edge.to).unwrap().inputs.push(rx);
+            }
+            if node.properties.contains_key(START_NODE_MARKER) {
+                let (tx, rx) = mspc::unbounded();
+                nodes.get_mut(node.node_id).unwrap().inputs.push(rx);
+                start_nodes.push(tx);
+            }
         }
 
         Ok(Flow {
-            start_commands,
-            commands,
+            start_nodes,
+            nodes,
         })
     }
 
     async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
-        let flow = self.read_flow(flow_id).await?;
+        //let flow = self.read_flow(flow_id).await?;
 
         println!("{:#?}", flow);
 
@@ -198,9 +186,29 @@ impl FlowContext {
 
                 println!("tick");
 
-                tokio::spawn(async move {
-                    flow.run(exec_ctx.clone()).await;
-                });
+                let other = self.clone();
+
+                let Flow {
+                    nodes, start_nodes
+                } = match other.read_flow(flow_id).await {
+                    Ok(flow) => flow,
+                    Err(e) => {
+                        eprintln!("failed to read flow: {}", e);
+                        return;
+                    }
+                };
+
+                for node in nodes {
+                    tokio::spawn(async move {
+                        // join inputs 
+                        // execute cmd
+                        // send outputs
+                    });
+                }
+
+                for node in start_nodes {
+                    node.send(Msg::default()).unwrap();
+                }
             }
         };
 
@@ -241,23 +249,31 @@ impl ExecutionContext {
     }
 }
 
-#[derive(Clone, Debug)]
+type EntryId = NodeId;
+
+type Msg = i32;
+
 struct Flow {
-    start_commands: Vec<CommandId>,
-    commands: HashMap<CommandId, CommandEntry>,
+    start_nodes: Vec<Sender<Msg>>,
+    nodes: HashMap<NodeId, Node>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
-struct CommandEntry {
-    command: Command,
-    next: Vec<Next>,
+struct Node {
+    inputs: Vec<Receiver<Msg>>,
+    outputs: Vec<Sender<Msg>>,
+    cmd: Command,
 }
 
-#[derive(Deserialize, Clone, Copy, Debug)]
-struct Next {
-    cond: Option<bool>,
-    id: CommandId,
-}
+// A
+// 0        //*/C          //E
+// B
+// D
+
+// edge
+// nodesA    input1,2,3 processing output 1,2
+// nodeB     input1                output1
+
+// node addition  input 1,2        output 1
 
 // https://rust-lang.github.io/async-book/07_workarounds/04_recursion.html
 
@@ -272,19 +288,24 @@ impl Flow {
         self: Arc<Self>,
         id: CommandId,
         exec_ctx: Arc<ExecutionContext>,
+        cmd_res: CommandResult,
     ) -> BoxFuture<'static, ()> {
         async move {
             let entry = self.commands.get(&id).unwrap();
 
             println!("RUNNING COMMAND");
 
-            if let Err(e) = self
+            let cmd_res = match self
                 .clone()
                 .run_command(&entry.command, exec_ctx.clone())
                 .await
             {
-                eprintln!("error while running entry: {}", e);
-            }
+                Ok(res) => res,
+                Err(e) => {
+                    eprintln!("error while running entry: {}", e);
+                    return;
+                }
+            };
 
             for next in entry.next.iter() {
                 match next.cond {
@@ -551,7 +572,7 @@ fn execute_instructions(
 
 // gui app
 
-const START_COMMAND_MARKER: &str = "START_COMMAND_MARKER";
+const START_ENTRY_MARKER: &str = "START_ENTRY_MARKER";
 const COMMAND_MARKER: &str = "COMMAND_MARKER";
 
 #[tokio::test(flavor = "multi_thread")]
@@ -580,6 +601,23 @@ async fn test_flow_ctx() {
         .as_id()
         .unwrap();
 
+    // node 1
+    let mut props = serde_json::Map::new();
+
+    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Print("hello1".into())).unwrap(),
+    );
+
+    let node1 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // node 2
     let mut props = serde_json::Map::new();
 
     props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
@@ -588,8 +626,50 @@ async fn test_flow_ctx() {
         serde_json::to_value(&Command::Print("hello2".into())).unwrap(),
     );
 
-    store
+    let node2 = store
         .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // node 3
+    let mut props = serde_json::Map::new();
+
+    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Print("hello3".into())).unwrap(),
+    );
+
+    let node3 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node1,
+                to: node2,
+                properties: Default::default(),
+            }),
+        ))
+        .await
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node1,
+                to: node3,
+                properties: Default::default(),
+            }),
+        ))
         .await
         .unwrap();
 
