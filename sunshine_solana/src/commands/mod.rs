@@ -7,6 +7,8 @@ use self::{
     transfer::Transfer,
 };
 
+use super::Msg;
+
 pub mod account;
 pub mod keypair;
 pub mod token;
@@ -24,5 +26,7 @@ pub enum Command {
     MintToken(MintToken),
     RequestAirdrop(String, u64),
     Transfer(Transfer),
-    Print(String),
+    Print,
+    Add,
+    Const(Msg),
 }

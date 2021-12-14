@@ -1,5 +1,15 @@
 
 
+error handling
+convert command implementations
+correctness of types
+triggers
+pause/wait
+
+
+
+
+
 graph of commands
 
 

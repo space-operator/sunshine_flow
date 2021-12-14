@@ -11,6 +11,7 @@ use commands::Command;
 use dashmap::DashMap;
 use futures::future::{BoxFuture, FutureExt};
 use futures::stream::{Stream, StreamExt, TryStreamExt};
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use solana_client::rpc_client::RpcClient;
@@ -28,7 +29,7 @@ use sunshine_core::store::Datastore;
 use sunshine_indra::store::DbConfig;
 use sunshine_indra::store::DB;
 
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as Sender};
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
@@ -36,6 +37,7 @@ use errors::CustomError;
 
 use crate::commands::token::CreateToken;
 
+use serde_json::Value;
 use tokio::task::spawn_blocking;
 use tokio::time::Duration;
 
@@ -114,83 +116,99 @@ impl FlowContext {
 
     // TODO not taking mutable reference
 
-    async fn read_flow(&self, flow_id: FlowId) -> Result<Flow, Error> {
-        let graph = self
-            .db
+    async fn read_flow(db: Arc<dyn Datastore>, flow_id: FlowId) -> Result<Flow, Error> {
+        let graph = db
             .execute(Action::Query(QueryKind::ReadGraph(flow_id)))
             .await
             .map_err(Box::new)?
             .into_graph()
             .unwrap();
 
-        let nodes = futures::stream::iter(graph.nodes.iter()));
+        let nodes = futures::stream::iter(graph.nodes.iter());
 
-        let nodes: Result<HashMap<_, _>, Error> = nodes
-            .then(|node| {
-                let tx = tx.clone();
-                async move {
-                    let cmd: Command =
-                        serde_json::from_value(node.properties.get(COMMAND_MARKER).unwrap().clone())
-                            .unwrap();
+        let mut nodes = {
+            let nodes: Result<HashMap<_, _>, Error> = nodes
+                .then(|node| async move {
+                    let cmd: Command = serde_json::from_value(
+                        node.properties.get(COMMAND_MARKER).unwrap().clone(),
+                    )
+                    .unwrap();
 
                     Ok((
                         node.node_id,
-                        Node {
-                            inputs: Vec::new(),
-                            outputs: Vec::new(),
+                        FlowNode {
+                            inputs: HashMap::new(),
+                            outputs: HashMap::new(),
                             cmd,
                         },
                     ))
-                }
-            })
-            .try_collect()
-            .await;
+                })
+                .try_collect()
+                .await;
 
-        let nodes = nodes?;
+            nodes?
+        };
 
         let mut start_nodes = Vec::new();
 
         for node in graph.nodes.iter() {
             for edge in node.outbound_edges.iter() {
-                let (tx, rx) = mpsc::unbounded();
-                nodes.get_mut(edge.from).unwrap().outputs.push(tx);
-                nodes.get_mut(edge.to).unwrap().inputs.push(rx);
+                let properties = db
+                    .execute(Action::Query(QueryKind::ReadEdgeProperties(*edge)))
+                    .await
+                    .unwrap()
+                    .into_properties()
+                    .unwrap();
+
+                let input_arg_name = properties
+                    .get(INPUT_ARG_NAME_MARKER)
+                    .unwrap()
+                    .as_str()
+                    .unwrap();
+
+                let output_arg_name = properties
+                    .get(OUTPUT_ARG_NAME_MARKER)
+                    .unwrap()
+                    .as_str()
+                    .unwrap();
+
+                let (tx, rx) = mpsc::unbounded_channel();
+                nodes
+                    .get_mut(&edge.from)
+                    .unwrap()
+                    .outputs
+                    .insert(output_arg_name.to_owned(), tx);
+                nodes
+                    .get_mut(&edge.to)
+                    .unwrap()
+                    .inputs
+                    .insert(input_arg_name.to_owned(), rx);
             }
             if node.properties.contains_key(START_NODE_MARKER) {
-                let (tx, rx) = mspc::unbounded();
-                nodes.get_mut(node.node_id).unwrap().inputs.push(rx);
+                let (tx, rx) = mpsc::unbounded_channel();
+                nodes
+                    .get_mut(&node.node_id)
+                    .unwrap()
+                    .inputs
+                    .insert("STARTER_INPUT_MARKER".into(), rx);
                 start_nodes.push(tx);
             }
         }
 
-        Ok(Flow {
-            start_nodes,
-            nodes,
-        })
+        Ok(Flow { start_nodes, nodes })
     }
 
     async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
-        //let flow = self.read_flow(flow_id).await?;
-
-        println!("{:#?}", flow);
-
         let mut interval = tokio::time::interval(period);
 
-        let flow = Arc::new(flow);
         let exec_ctx = self.exec_ctx.clone();
+        let db = self.db.clone();
 
         let interval_fut = async move {
             while let _ = interval.tick().await {
-                let flow = flow.clone();
-                let exec_ctx = exec_ctx.clone();
-
                 println!("tick");
 
-                let other = self.clone();
-
-                let Flow {
-                    nodes, start_nodes
-                } = match other.read_flow(flow_id).await {
+                let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
                     Ok(flow) => flow,
                     Err(e) => {
                         eprintln!("failed to read flow: {}", e);
@@ -198,11 +216,20 @@ impl FlowContext {
                     }
                 };
 
-                for node in nodes {
+                for (_, node) in nodes {
+                    let exec_ctx = exec_ctx.clone();
                     tokio::spawn(async move {
-                        // join inputs 
-                        // execute cmd
-                        // send outputs
+                        let mut inputs = HashMap::new();
+                        for (name, mut rx) in node.inputs {
+                            inputs.insert(name, rx.recv().await.unwrap());
+                        }
+
+                        let mut outputs = run_command(exec_ctx, &node.cmd, inputs).await.unwrap();
+                        assert!(outputs.len() >= node.outputs.len());
+
+                        for (name, tx) in node.outputs.into_iter() {
+                            tx.send(outputs.remove(&name).unwrap()).unwrap();
+                        }
                     });
                 }
 
@@ -255,274 +282,233 @@ type Msg = i32;
 
 struct Flow {
     start_nodes: Vec<Sender<Msg>>,
-    nodes: HashMap<NodeId, Node>,
+    nodes: HashMap<NodeId, FlowNode>,
 }
 
-struct Node {
-    inputs: Vec<Receiver<Msg>>,
-    outputs: Vec<Sender<Msg>>,
+struct FlowNode {
+    inputs: HashMap<String, Receiver<Msg>>,
+    outputs: HashMap<String, Sender<Msg>>,
     cmd: Command,
 }
 
-// A
-// 0        //*/C          //E
-// B
-// D
+async fn run_command(
+    exec_ctx: Arc<ExecutionContext>,
+    cmd: &Command,
+    mut inputs: HashMap<String, Msg>,
+) -> Result<HashMap<String, Msg>, Error> {
+    println!("{:#?}", cmd);
 
-// edge
-// nodesA    input1,2,3 processing output 1,2
-// nodeB     input1                output1
+    println!("{:#?}", inputs);
 
-// node addition  input 1,2        output 1
+    match cmd {
+        Command::Add => {
+            let a = inputs.remove("a").unwrap();
+            let b = inputs.remove("b").unwrap();
 
-// https://rust-lang.github.io/async-book/07_workarounds/04_recursion.html
-
-impl Flow {
-    pub async fn run(self: Arc<Self>, exec_ctx: Arc<ExecutionContext>) {
-        for cmd_id in self.start_commands.iter() {
-            self.clone().run_entry(*cmd_id, exec_ctx.clone()).await;
+            Ok(hashmap! {
+                "res".to_owned() => a + b,
+            })
         }
-    }
+        Command::Print => {
+            let p = inputs.remove("p").unwrap();
 
-    fn run_entry(
-        self: Arc<Self>,
-        id: CommandId,
-        exec_ctx: Arc<ExecutionContext>,
-        cmd_res: CommandResult,
-    ) -> BoxFuture<'static, ()> {
-        async move {
-            let entry = self.commands.get(&id).unwrap();
+            println!("{:#?}", p);
 
-            println!("RUNNING COMMAND");
+            Ok(hashmap! {
+                "res".to_owned() => p,
+            })
+        }
+        Command::Const(msg) => Ok(hashmap! {
+            "res".to_owned() => *msg,
+        }),
+        _ => unreachable!(),
+        /*
+        Command::GenerateKeypair(name, gen_keypair) => {
+            if exec_ctx.keyring.contains_key(name) {
+                return Err(Box::new(CustomError::KeypairAlreadyExistsInKeyring));
+            }
 
-            let cmd_res = match self
-                .clone()
-                .run_command(&entry.command, exec_ctx.clone())
-                .await
-            {
-                Ok(res) => res,
-                Err(e) => {
-                    eprintln!("error while running entry: {}", e);
-                    return;
-                }
+            if exec_ctx.pub_keys.contains_key(name) {
+                return Err(Box::new(CustomError::PubkeyAlreadyExists));
+            }
+
+            let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
+            // let keypair = Arc::new(keypair);
+
+            exec_ctx.pub_keys.insert(name.clone(), keypair.pubkey());
+            exec_ctx.keyring.insert(name.clone(), Arc::new(keypair));
+
+            Ok(CommandResponse::Success)
+        }
+        Command::DeleteKeypair(name) => {
+            if exec_ctx.keyring.remove(name).is_none() {
+                return Err(Box::new(CustomError::KeypairDoesntExist));
+            }maplit
+        Command::AddPubkey(name, pubkey) => {
+            if exec_ctx.pub_keys.contains_key(name) {
+                return Err(Box::new(CustomError::PubkeyAlreadyExists));
+            }
+
+            let pubkey = Pubkey::from_str(pubkey)?;
+
+            exec_ctx.pub_keys.insert(name.clone(), pubkey);
+
+            Ok(CommandResponse::Success)
+        }
+        Command::DeletePubkey(name) => {
+            if exec_ctx.pub_keys.remove(name).is_none() {
+                return Err(Box::new(CustomError::PubkeyDoesntExist));
+            }
+
+            Ok(CommandResponse::Success)
+        }
+        Command::CreateAccount(create_account) => {
+            let owner = exec_ctx.get_pubkey(&create_account.owner)?;
+            let fee_payer = exec_ctx.get_keypair(&create_account.fee_payer)?;
+            let token = exec_ctx.get_pubkey(&create_account.token)?;
+            let account = match create_account.account {
+                Some(ref account) => Some(exec_ctx.get_keypair(account)?),
+                None => None,
             };
 
-            for next in entry.next.iter() {
-                match next.cond {
-                    Some(true) | None => {
-                        let exec_ctx = exec_ctx.clone();
-                        let other = self.clone();
-                        let id: CommandId = next.id;
-                        tokio::spawn(async move { other.run_entry(id, exec_ctx).await });
-                    }
-                    Some(false) => (),
-                }
-            }
+            let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
+                &exec_ctx.client,
+                fee_payer.pubkey(),
+                token,
+                owner,
+                account.as_ref().map(|a| a.pubkey()),
+            )
+            .unwrap();
+
+            let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
+
+            if let Some(account) = account {
+                signers.push(account.clone());
+            };
+
+            execute_instructions(
+                &signers,
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                &instructions,
+                minimum_balance_for_rent_exemption,
+            )?;
+
+            Ok(CommandResponse::Success)
         }
-        .boxed()
-    }
+        Command::GetBalance(name) => {
+            let pubkey = exec_ctx.get_pubkey(&name)?;
 
-    async fn run_command(
-        &self,
-        cmd: &Command,
-        exec_ctx: Arc<ExecutionContext>,
-    ) -> Result<CommandResponse, Error> {
-        println!("{:#?}", cmd);
+            let balance = exec_ctx.client.get_balance(&pubkey)?;
 
-        match cmd {
-            Command::GenerateKeypair(name, gen_keypair) => {
-                if exec_ctx.keyring.contains_key(name) {
-                    return Err(Box::new(CustomError::KeypairAlreadyExistsInKeyring));
-                }
-
-                if exec_ctx.pub_keys.contains_key(name) {
-                    return Err(Box::new(CustomError::PubkeyAlreadyExists));
-                }
-
-                let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
-                // let keypair = Arc::new(keypair);
-
-                exec_ctx.pub_keys.insert(name.clone(), keypair.pubkey());
-                exec_ctx.keyring.insert(name.clone(), Arc::new(keypair));
-
-                Ok(CommandResponse::Success)
-            }
-            Command::DeleteKeypair(name) => {
-                if exec_ctx.keyring.remove(name).is_none() {
-                    return Err(Box::new(CustomError::KeypairDoesntExist));
-                }
-
-                if exec_ctx.pub_keys.remove(name).is_none() {
-                    return Err(Box::new(CustomError::PubkeyDoesntExist));
-                }
-
-                Ok(CommandResponse::Success)
-            }
-            Command::AddPubkey(name, pubkey) => {
-                if exec_ctx.pub_keys.contains_key(name) {
-                    return Err(Box::new(CustomError::PubkeyAlreadyExists));
-                }
-
-                let pubkey = Pubkey::from_str(pubkey)?;
-
-                exec_ctx.pub_keys.insert(name.clone(), pubkey);
-
-                Ok(CommandResponse::Success)
-            }
-            Command::DeletePubkey(name) => {
-                if exec_ctx.pub_keys.remove(name).is_none() {
-                    return Err(Box::new(CustomError::PubkeyDoesntExist));
-                }
-
-                Ok(CommandResponse::Success)
-            }
-            Command::CreateAccount(create_account) => {
-                let owner = exec_ctx.get_pubkey(&create_account.owner)?;
-                let fee_payer = exec_ctx.get_keypair(&create_account.fee_payer)?;
-                let token = exec_ctx.get_pubkey(&create_account.token)?;
-                let account = match create_account.account {
-                    Some(ref account) => Some(exec_ctx.get_keypair(account)?),
-                    None => None,
-                };
-
-                let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
-                    &exec_ctx.client,
-                    fee_payer.pubkey(),
-                    token,
-                    owner,
-                    account.as_ref().map(|a| a.pubkey()),
-                )
-                .unwrap();
-
-                let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
-
-                if let Some(account) = account {
-                    signers.push(account.clone());
-                };
-
-                execute_instructions(
-                    &signers,
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    &instructions,
-                    minimum_balance_for_rent_exemption,
-                )?;
-
-                Ok(CommandResponse::Success)
-            }
-            Command::GetBalance(name) => {
-                let pubkey = exec_ctx.get_pubkey(&name)?;
-
-                let balance = exec_ctx.client.get_balance(&pubkey)?;
-
-                Ok(CommandResponse::Balance(balance))
-            }
-            Command::CreateToken(create_token) => {
-                let fee_payer = exec_ctx.get_keypair(&create_token.fee_payer)?;
-                let authority = exec_ctx.get_keypair(&create_token.authority)?;
-                let token = exec_ctx.get_keypair(&create_token.token)?;
-
-                let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    create_token.decimals,
-                    &token.pubkey(),
-                    authority.pubkey(),
-                    &create_token.memo,
-                )?;
-
-                let signers: Vec<Arc<dyn Signer>> =
-                    vec![authority.clone(), fee_payer.clone(), token.clone()];
-
-                execute_instructions(
-                    &signers,
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    &instructions,
-                    minimum_balance_for_rent_exemption,
-                )?;
-
-                Ok(CommandResponse::Success)
-            }
-            Command::RequestAirdrop(name, amount) => {
-                let pubkey = exec_ctx.get_pubkey(&name)?;
-
-                exec_ctx.client.request_airdrop(&pubkey, *amount)?;
-
-                Ok(CommandResponse::Success)
-            }
-            Command::MintToken(mint_token) => {
-                let token = exec_ctx.get_keypair(&mint_token.token)?;
-                let mint_authority = exec_ctx.get_keypair(&mint_token.mint_authority)?;
-                let recipient = exec_ctx.get_pubkey(&mint_token.recipient)?;
-                let fee_payer = exec_ctx.get_keypair(&mint_token.fee_payer)?;
-
-                let (minimum_balance_for_rent_exemption, instructions) = command_mint(
-                    &exec_ctx.client,
-                    token.pubkey(),
-                    mint_token.amount,
-                    recipient,
-                    mint_authority.pubkey(),
-                )?;
-
-                let signers: Vec<Arc<dyn Signer>> =
-                    vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
-
-                execute_instructions(
-                    &signers,
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    &instructions,
-                    minimum_balance_for_rent_exemption,
-                )?;
-
-                Ok(CommandResponse::Success)
-            }
-            Command::Transfer(transfer) => {
-                let token = exec_ctx.get_pubkey(&transfer.token)?;
-                let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
-                let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
-                let sender = match transfer.sender {
-                    Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
-                    None => None,
-                };
-                let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
-
-                let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    token,
-                    transfer.amount,
-                    recipient,
-                    sender.as_ref().map(|s| s.pubkey()),
-                    sender_owner.pubkey(),
-                    transfer.allow_unfunded_recipient,
-                    transfer.fund_recipient,
-                    transfer.memo.clone(),
-                )?;
-
-                let mut signers: Vec<Arc<dyn Signer>> =
-                    vec![fee_payer.clone(), sender_owner.clone()];
-
-                if let Some(sender) = sender {
-                    signers.push(sender);
-                }
-
-                execute_instructions(
-                    &signers,
-                    &exec_ctx.client,
-                    &fee_payer.pubkey(),
-                    &instructions,
-                    minimum_balance_for_rent_exemption,
-                )?;
-
-                Ok(CommandResponse::Success)
-            }
-            Command::Print(s) => {
-                println!("{}", s);
-                Ok(CommandResponse::Success)
-            }
+            Ok(CommandResponse::Balance(balance))
         }
+        Command::CreateToken(create_token) => {
+            let fee_payer = exec_ctx.get_keypair(&create_token.fee_payer)?;
+            let authority = exec_ctx.get_keypair(&create_token.authority)?;
+            let token = exec_ctx.get_keypair(&create_token.token)?;
+
+            let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                create_token.decimals,
+                &token.pubkey(),
+                authority.pubkey(),
+                &create_token.memo,
+            )?;
+
+            let signers: Vec<Arc<dyn Signer>> =
+                vec![authority.clone(), fee_payer.clone(), token.clone()];
+
+            execute_instructions(
+                &signers,
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                &instructions,
+                minimum_balance_for_rent_exemption,
+            )?;
+
+            Ok(CommandResponse::Success)
+        }
+        Command::RequestAirdrop(name, amount) => {
+            let pubkey = exec_ctx.get_pubkey(&name)?;
+
+            exec_ctx.client.request_airdrop(&pubkey, *amount)?;
+
+            Ok(CommandResponse::Success)
+        }
+        Command::MintToken(mint_token) => {
+            let token = exec_ctx.get_keypair(&mint_token.token)?;
+            let mint_authority = exec_ctx.get_keypair(&mint_token.mint_authority)?;
+            let recipient = exec_ctx.get_pubkey(&mint_token.recipient)?;
+            let fee_payer = exec_ctx.get_keypair(&mint_token.fee_payer)?;
+
+            let (minimum_balance_for_rent_exemption, instructions) = command_mint(
+                &exec_ctx.client,
+                token.pubkey(),
+                mint_token.amount,
+                recipient,
+                mint_authority.pubkey(),
+            )?;
+
+            let signers: Vec<Arc<dyn Signer>> =
+                vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
+
+            execute_instructions(
+                &signers,
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                &instructions,
+                minimum_balance_for_rent_exemption,
+            )?;
+
+            Ok(CommandResponse::Success)
+        }
+        Command::Transfer(transfer) => {
+            let token = exec_ctx.get_pubkey(&transfer.token)?;
+            let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
+            let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
+            let sender = match transfer.sender {
+                Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
+                None => None,
+            };
+            let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
+
+            let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                token,
+                transfer.amount,
+                recipient,
+                sender.as_ref().map(|s| s.pubkey()),
+                sender_owner.pubkey(),
+                transfer.allow_unfunded_recipient,
+                transfer.fund_recipient,
+                transfer.memo.clone(),
+            )?;
+
+            let mut signers: Vec<Arc<dyn Signer>> =
+                vec![fee_payer.clone(), sender_owner.clone()];
+
+            if let Some(sender) = sender {
+                signers.push(sender);
+            }
+
+            execute_instructions(
+                &signers,
+                &exec_ctx.client,
+                &fee_payer.pubkey(),
+                &instructions,
+                minimum_balance_for_rent_exemption,
+            )?;
+
+            Ok(CommandResponse::Success)
+        }
+        Command::Print(s) => {
+            println!("{}", s);
+            Ok(CommandResponse::Success)
+        }
+        */
     }
 }
 
@@ -572,8 +558,10 @@ fn execute_instructions(
 
 // gui app
 
-const START_ENTRY_MARKER: &str = "START_ENTRY_MARKER";
+const START_NODE_MARKER: &str = "START_NODE_MARKER";
 const COMMAND_MARKER: &str = "COMMAND_MARKER";
+const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
+const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_flow_ctx() {
@@ -604,10 +592,10 @@ async fn test_flow_ctx() {
     // node 1
     let mut props = serde_json::Map::new();
 
-    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
+    props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Print("hello1".into())).unwrap(),
+        serde_json::to_value(&Command::Const(3)).unwrap(),
     );
 
     let node1 = store
@@ -620,10 +608,10 @@ async fn test_flow_ctx() {
     // node 2
     let mut props = serde_json::Map::new();
 
-    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
+    props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Print("hello2".into())).unwrap(),
+        serde_json::to_value(&Command::Const(2)).unwrap(),
     );
 
     let node2 = store
@@ -636,13 +624,27 @@ async fn test_flow_ctx() {
     // node 3
     let mut props = serde_json::Map::new();
 
-    props.insert(START_COMMAND_MARKER.into(), JsonValue::Bool(true));
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Print("hello3".into())).unwrap(),
+        serde_json::to_value(&Command::Add).unwrap(),
     );
 
     let node3 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // node 4
+    let mut props = serde_json::Map::new();
+
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Print).unwrap(),
+    );
+
+    let node4 = store
         .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
         .await
         .unwrap()
@@ -654,8 +656,14 @@ async fn test_flow_ctx() {
             graph_id,
             MutateKind::CreateEdge(CreateEdge {
                 from: node1,
-                to: node2,
-                properties: Default::default(),
+                to: node3,
+                properties: serde_json::json! ({
+                    INPUT_ARG_NAME_MARKER: "a",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
             }),
         ))
         .await
@@ -665,9 +673,33 @@ async fn test_flow_ctx() {
         .execute(Action::Mutate(
             graph_id,
             MutateKind::CreateEdge(CreateEdge {
-                from: node1,
+                from: node2,
                 to: node3,
-                properties: Default::default(),
+                properties: serde_json::json!({
+                    INPUT_ARG_NAME_MARKER: "b",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            }),
+        ))
+        .await
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node3,
+                to: node4,
+                properties: serde_json::json!({
+                    INPUT_ARG_NAME_MARKER: "p",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
             }),
         ))
         .await
