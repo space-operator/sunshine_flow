@@ -5,6 +5,7 @@ convert command implementations
 correctness of types
 triggers
 pause/wait
+multiple outputs to one node
 
 
 

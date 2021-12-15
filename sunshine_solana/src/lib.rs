@@ -173,11 +173,18 @@ impl FlowContext {
                     .unwrap();
 
                 let (tx, rx) = mpsc::unbounded_channel();
-                nodes
-                    .get_mut(&edge.from)
-                    .unwrap()
-                    .outputs
-                    .insert(output_arg_name.to_owned(), tx);
+
+                use std::collections::hash_map::Entry;
+
+                let outputs = &mut nodes.get_mut(&edge.from).unwrap().outputs;
+
+                match outputs.entry(output_arg_name.to_owned()) {
+                    Entry::Occupied(mut entry) => entry.get_mut().push(tx),
+                    Entry::Vacant(entry) => {
+                        entry.insert(vec![tx]);
+                    }
+                }
+
                 nodes
                     .get_mut(&edge.to)
                     .unwrap()
@@ -227,8 +234,11 @@ impl FlowContext {
                         let mut outputs = run_command(exec_ctx, &node.cmd, inputs).await.unwrap();
                         assert!(outputs.len() >= node.outputs.len());
 
-                        for (name, tx) in node.outputs.into_iter() {
-                            tx.send(outputs.remove(&name).unwrap()).unwrap();
+                        for (name, txs) in node.outputs.into_iter() {
+                            let val = outputs.remove(&name).unwrap();
+                            for tx in txs {
+                                tx.send(val.clone()).unwrap();
+                            }
                         }
                     });
                 }
@@ -287,7 +297,7 @@ struct Flow {
 
 struct FlowNode {
     inputs: HashMap<String, Receiver<Msg>>,
-    outputs: HashMap<String, Sender<Msg>>,
+    outputs: HashMap<String, Vec<Sender<Msg>>>,
     cmd: Command,
 }
 
@@ -651,6 +661,51 @@ async fn test_flow_ctx() {
         .as_id()
         .unwrap();
 
+    // node 5
+    let mut props = serde_json::Map::new();
+
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Const(7)).unwrap(),
+    );
+
+    let node5 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // node 6
+    let mut props = serde_json::Map::new();
+
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Add).unwrap(),
+    );
+
+    let node6 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // node 7
+    let mut props = serde_json::Map::new();
+
+    props.insert(
+        COMMAND_MARKER.into(),
+        serde_json::to_value(&Command::Print).unwrap(),
+    );
+
+    let node7 = store
+        .execute(Action::Mutate(graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+    //
     store
         .execute(Action::Mutate(
             graph_id,
@@ -693,6 +748,60 @@ async fn test_flow_ctx() {
             MutateKind::CreateEdge(CreateEdge {
                 from: node3,
                 to: node4,
+                properties: serde_json::json!({
+                    INPUT_ARG_NAME_MARKER: "p",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            }),
+        ))
+        .await
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node3,
+                to: node6,
+                properties: serde_json::json!({
+                    INPUT_ARG_NAME_MARKER: "a",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            }),
+        ))
+        .await
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node5,
+                to: node6,
+                properties: serde_json::json!({
+                    INPUT_ARG_NAME_MARKER: "b",
+                    OUTPUT_ARG_NAME_MARKER: "res",
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+            }),
+        ))
+        .await
+        .unwrap();
+
+    store
+        .execute(Action::Mutate(
+            graph_id,
+            MutateKind::CreateEdge(CreateEdge {
+                from: node6,
+                to: node7,
                 properties: serde_json::json!({
                     INPUT_ARG_NAME_MARKER: "p",
                     OUTPUT_ARG_NAME_MARKER: "res",
