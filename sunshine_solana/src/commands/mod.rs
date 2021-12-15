@@ -1,32 +1,10 @@
+use super::Msg;
 use serde::{Deserialize, Serialize};
 
-use self::{
-    account::CreateAccount,
-    keypair::GenerateKeypair,
-    token::{CreateToken, MintToken},
-    transfer::Transfer,
-};
-
-use super::Msg;
-
-pub mod account;
-pub mod keypair;
-pub mod token;
-pub mod transfer;
+pub mod simple;
+pub mod solana;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {
-    GenerateKeypair(String, GenerateKeypair),
-    DeleteKeypair(String),
-    AddPubkey(String, String),
-    DeletePubkey(String),
-    CreateAccount(CreateAccount),
-    GetBalance(String),
-    CreateToken(CreateToken),
-    MintToken(MintToken),
-    RequestAirdrop(String, u64),
-    Transfer(Transfer),
-    Print,
-    Add,
-    Const(Msg),
+    Simple(simple::Command),
 }

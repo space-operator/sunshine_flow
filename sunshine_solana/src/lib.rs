@@ -1,13 +1,8 @@
 use std::str::FromStr;
 use std::sync::Arc;
+use thiserror::Error as ThisError;
 
-use commands::account::command_create_account;
-use commands::keypair::generate_keypair;
-use commands::keypair::GenerateKeypair;
-use commands::token::command_create_token;
-use commands::token::command_mint;
-use commands::transfer::command_transfer;
-use commands::Command;
+use commands::{simple, Command};
 use dashmap::DashMap;
 use futures::future::{BoxFuture, FutureExt};
 use futures::stream::{Stream, StreamExt, TryStreamExt};
@@ -33,83 +28,43 @@ use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as 
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 
-use errors::CustomError;
-
-use crate::commands::token::CreateToken;
-
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 use tokio::time::Duration;
 
 mod commands;
-mod errors;
+mod error;
+
+use error::Error;
 
 type FlowId = GraphId;
 type CommandId = NodeId;
 
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;
-type Error = Box<dyn std::error::Error>;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum CommandResponse {
-    Success,
-    Balance(u64),
-}
 
 #[derive(Debug)]
 struct Config {
     url: String,
-    keyring: HashMap<String, GenerateKeypair>,
-    pub_keys: HashMap<String, String>,
 }
 
 struct FlowContext {
-    exec_ctx: Arc<ExecutionContext>,
     deployed: DashMap<FlowId, oneshot::Sender<()>>,
     db: Arc<dyn Datastore>,
 }
 
 impl FlowContext {
-    fn new(cfg: Config, db: Arc<dyn Datastore>) -> Result<FlowContext, Error> {
-        let keyring = cfg
-            .keyring
-            .into_iter()
-            .map(|(name, gen_keypair)| {
-                let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
-
-                println!("pubkey: {}", keypair.pubkey());
-
-                Ok((name, Arc::new(keypair)))
-            })
-            .collect::<Result<DashMap<_, _>, Error>>()?;
-
-        let pub_keys = cfg
-            .pub_keys
-            .into_iter()
-            .map(|(name, pubkey)| Ok((name, Pubkey::from_str(&pubkey)?)))
-            .chain(
-                keyring
-                    .iter()
-                    .map(|kp| Ok((kp.key().clone(), kp.value().pubkey()))),
-            )
-            .collect::<Result<DashMap<_, _>, Error>>()?;
-
-        Ok(FlowContext {
-            exec_ctx: Arc::new(ExecutionContext {
-                client: RpcClient::new(cfg.url),
-                keyring,
-                pub_keys,
-            }),
+    fn new(cfg: Config, db: Arc<dyn Datastore>) -> FlowContext {
+        FlowContext {
             deployed: DashMap::new(),
             db,
-        })
+        }
     }
 
     fn undeploy_flow(&self, flow_id: FlowId) -> Result<(), Error> {
         let (_, stop_signal) = self
             .deployed
             .remove(&flow_id)
-            .ok_or(Box::new(CustomError::FlowDoesntExist))?;
+            .ok_or(Error::FlowDoesntExist)?;
         stop_signal.send(()).unwrap();
         Ok(())
     }
@@ -119,8 +74,7 @@ impl FlowContext {
     async fn read_flow(db: Arc<dyn Datastore>, flow_id: FlowId) -> Result<Flow, Error> {
         let graph = db
             .execute(Action::Query(QueryKind::ReadGraph(flow_id)))
-            .await
-            .map_err(Box::new)?
+            .await?
             .into_graph()
             .unwrap();
 
@@ -208,7 +162,6 @@ impl FlowContext {
     async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
         let mut interval = tokio::time::interval(period);
 
-        let exec_ctx = self.exec_ctx.clone();
         let db = self.db.clone();
 
         let interval_fut = async move {
@@ -224,14 +177,13 @@ impl FlowContext {
                 };
 
                 for (_, node) in nodes {
-                    let exec_ctx = exec_ctx.clone();
                     tokio::spawn(async move {
                         let mut inputs = HashMap::new();
                         for (name, mut rx) in node.inputs {
                             inputs.insert(name, rx.recv().await.unwrap());
                         }
 
-                        let mut outputs = run_command(exec_ctx, &node.cmd, inputs).await.unwrap();
+                        let mut outputs = run_command(&node.cmd, inputs).await.unwrap();
                         assert!(outputs.len() >= node.outputs.len());
 
                         for (name, txs) in node.outputs.into_iter() {
@@ -264,28 +216,6 @@ impl FlowContext {
     }
 }
 
-struct ExecutionContext {
-    client: RpcClient,
-    keyring: DashMap<String, Arc<Keypair>>,
-    pub_keys: DashMap<String, Pubkey>,
-}
-
-impl ExecutionContext {
-    fn get_keypair(&self, name: &str) -> Result<Arc<Keypair>, Error> {
-        self.keyring
-            .get(name)
-            .map(|r| r.value().clone())
-            .ok_or(Box::new(CustomError::KeypairDoesntExist))
-    }
-
-    fn get_pubkey(&self, name: &str) -> Result<Pubkey, Error> {
-        self.pub_keys
-            .get(name)
-            .map(|pk| *pk)
-            .ok_or(Box::new(CustomError::PubkeyDoesntExist))
-    }
-}
-
 type EntryId = NodeId;
 
 type Msg = i32;
@@ -302,7 +232,6 @@ struct FlowNode {
 }
 
 async fn run_command(
-    exec_ctx: Arc<ExecutionContext>,
     cmd: &Command,
     mut inputs: HashMap<String, Msg>,
 ) -> Result<HashMap<String, Msg>, Error> {
@@ -311,219 +240,14 @@ async fn run_command(
     println!("{:#?}", inputs);
 
     match cmd {
-        Command::Add => {
-            let a = inputs.remove("a").unwrap();
-            let b = inputs.remove("b").unwrap();
-
-            Ok(hashmap! {
-                "res".to_owned() => a + b,
-            })
-        }
-        Command::Print => {
-            let p = inputs.remove("p").unwrap();
-
-            println!("{:#?}", p);
-
-            Ok(hashmap! {
-                "res".to_owned() => p,
-            })
-        }
-        Command::Const(msg) => Ok(hashmap! {
-            "res".to_owned() => *msg,
-        }),
+        Command::Simple(simple) => simple.run(inputs).await,
         _ => unreachable!(),
-        /*
-        Command::GenerateKeypair(name, gen_keypair) => {
-            if exec_ctx.keyring.contains_key(name) {
-                return Err(Box::new(CustomError::KeypairAlreadyExistsInKeyring));
-            }
-
-            if exec_ctx.pub_keys.contains_key(name) {
-                return Err(Box::new(CustomError::PubkeyAlreadyExists));
-            }
-
-            let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
-            // let keypair = Arc::new(keypair);
-
-            exec_ctx.pub_keys.insert(name.clone(), keypair.pubkey());
-            exec_ctx.keyring.insert(name.clone(), Arc::new(keypair));
-
-            Ok(CommandResponse::Success)
-        }
-        Command::DeleteKeypair(name) => {
-            if exec_ctx.keyring.remove(name).is_none() {
-                return Err(Box::new(CustomError::KeypairDoesntExist));
-            }maplit
-        Command::AddPubkey(name, pubkey) => {
-            if exec_ctx.pub_keys.contains_key(name) {
-                return Err(Box::new(CustomError::PubkeyAlreadyExists));
-            }
-
-            let pubkey = Pubkey::from_str(pubkey)?;
-
-            exec_ctx.pub_keys.insert(name.clone(), pubkey);
-
-            Ok(CommandResponse::Success)
-        }
-        Command::DeletePubkey(name) => {
-            if exec_ctx.pub_keys.remove(name).is_none() {
-                return Err(Box::new(CustomError::PubkeyDoesntExist));
-            }
-
-            Ok(CommandResponse::Success)
-        }
-        Command::CreateAccount(create_account) => {
-            let owner = exec_ctx.get_pubkey(&create_account.owner)?;
-            let fee_payer = exec_ctx.get_keypair(&create_account.fee_payer)?;
-            let token = exec_ctx.get_pubkey(&create_account.token)?;
-            let account = match create_account.account {
-                Some(ref account) => Some(exec_ctx.get_keypair(account)?),
-                None => None,
-            };
-
-            let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
-                &exec_ctx.client,
-                fee_payer.pubkey(),
-                token,
-                owner,
-                account.as_ref().map(|a| a.pubkey()),
-            )
-            .unwrap();
-
-            let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
-
-            if let Some(account) = account {
-                signers.push(account.clone());
-            };
-
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::GetBalance(name) => {
-            let pubkey = exec_ctx.get_pubkey(&name)?;
-
-            let balance = exec_ctx.client.get_balance(&pubkey)?;
-
-            Ok(CommandResponse::Balance(balance))
-        }
-        Command::CreateToken(create_token) => {
-            let fee_payer = exec_ctx.get_keypair(&create_token.fee_payer)?;
-            let authority = exec_ctx.get_keypair(&create_token.authority)?;
-            let token = exec_ctx.get_keypair(&create_token.token)?;
-
-            let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                create_token.decimals,
-                &token.pubkey(),
-                authority.pubkey(),
-                &create_token.memo,
-            )?;
-
-            let signers: Vec<Arc<dyn Signer>> =
-                vec![authority.clone(), fee_payer.clone(), token.clone()];
-
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::RequestAirdrop(name, amount) => {
-            let pubkey = exec_ctx.get_pubkey(&name)?;
-
-            exec_ctx.client.request_airdrop(&pubkey, *amount)?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::MintToken(mint_token) => {
-            let token = exec_ctx.get_keypair(&mint_token.token)?;
-            let mint_authority = exec_ctx.get_keypair(&mint_token.mint_authority)?;
-            let recipient = exec_ctx.get_pubkey(&mint_token.recipient)?;
-            let fee_payer = exec_ctx.get_keypair(&mint_token.fee_payer)?;
-
-            let (minimum_balance_for_rent_exemption, instructions) = command_mint(
-                &exec_ctx.client,
-                token.pubkey(),
-                mint_token.amount,
-                recipient,
-                mint_authority.pubkey(),
-            )?;
-
-            let signers: Vec<Arc<dyn Signer>> =
-                vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
-
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::Transfer(transfer) => {
-            let token = exec_ctx.get_pubkey(&transfer.token)?;
-            let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
-            let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
-            let sender = match transfer.sender {
-                Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
-                None => None,
-            };
-            let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
-
-            let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                token,
-                transfer.amount,
-                recipient,
-                sender.as_ref().map(|s| s.pubkey()),
-                sender_owner.pubkey(),
-                transfer.allow_unfunded_recipient,
-                transfer.fund_recipient,
-                transfer.memo.clone(),
-            )?;
-
-            let mut signers: Vec<Arc<dyn Signer>> =
-                vec![fee_payer.clone(), sender_owner.clone()];
-
-            if let Some(sender) = sender {
-                signers.push(sender);
-            }
-
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::Print(s) => {
-            println!("{}", s);
-            Ok(CommandResponse::Success)
-        }
-        */
     }
 }
 
+/*
 fn execute_instructions(
-    signers: &Vec<Arc<dyn Signer>>,
+    signers: &[Arc<dyn Signer>],
     client: &RpcClient,
     fee_payer: &Pubkey,
     instructions: &[Instruction],
@@ -563,6 +287,7 @@ fn execute_instructions(
 
     Ok(())
 }
+*/
 
 // flow api
 
@@ -573,6 +298,7 @@ const COMMAND_MARKER: &str = "COMMAND_MARKER";
 const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
 const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
 
+/*
 #[tokio::test(flavor = "multi_thread")]
 async fn test_flow_ctx() {
     let store = sunshine_indra::store::DB::new(&sunshine_indra::store::DbConfig {
@@ -605,7 +331,7 @@ async fn test_flow_ctx() {
     props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Const(3)).unwrap(),
+        serde_json::to_value(&Command::Simple(SimpleCommand::Const(3))).unwrap(),
     );
 
     let node1 = store
@@ -621,7 +347,7 @@ async fn test_flow_ctx() {
     props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Const(2)).unwrap(),
+        serde_json::to_value(&SimpleCommand::Const(2)).unwrap(),
     );
 
     let node2 = store
@@ -636,7 +362,7 @@ async fn test_flow_ctx() {
 
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Add).unwrap(),
+        serde_json::to_value(&SimpleCommand::Add).unwrap(),
     );
 
     let node3 = store
@@ -651,7 +377,7 @@ async fn test_flow_ctx() {
 
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Print).unwrap(),
+        serde_json::to_value(&SimpleCommand::Print).unwrap(),
     );
 
     let node4 = store
@@ -666,7 +392,7 @@ async fn test_flow_ctx() {
 
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Const(7)).unwrap(),
+        serde_json::to_value(&SimpleCommand::Const(7)).unwrap(),
     );
 
     let node5 = store
@@ -681,7 +407,7 @@ async fn test_flow_ctx() {
 
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Add).unwrap(),
+        serde_json::to_value(&SimpleCommand::Add).unwrap(),
     );
 
     let node6 = store
@@ -696,7 +422,7 @@ async fn test_flow_ctx() {
 
     props.insert(
         COMMAND_MARKER.into(),
-        serde_json::to_value(&Command::Print).unwrap(),
+        serde_json::to_value(&SimpleCommand::Print).unwrap(),
     );
 
     let node7 = store
@@ -821,3 +547,4 @@ async fn test_flow_ctx() {
 
     tokio::time::sleep(Duration::from_secs(11)).await;
 }
+*/
