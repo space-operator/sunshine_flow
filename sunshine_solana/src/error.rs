@@ -14,6 +14,14 @@ pub enum Error {
     FlowDoesntExist,
     #[error("core error: {0}")]
     Core(sunshine_core::Error),
+    #[error("argument not found: {0}")]
+    ArgumentNotFound(String),
+    #[error("can't get mnemonic from phrase")]
+    CantGetMnemonicFromPhrase,
+    #[error("failed to get keypair from seed: {0}")]
+    KeypairFromSeed(String),
+    #[error("failed to parse public key from string: {0}")]
+    ParsePubKey(solana_sdk::pubkey::ParsePubkeyError),
 }
 
 impl From<sunshine_core::Error> for Error {

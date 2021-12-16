@@ -1,28 +1,49 @@
-// use self::{
-//     account::CreateAccount,
-//     keypair::GenerateKeypair,
-//     token::{CreateToken, MintToken},
-//     transfer::Transfer,
-// };
+use std::{
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+};
+
+use dashmap::DashMap;
+use serde::{Deserialize, Serialize};
+use solana_client::rpc_client::RpcClient;
+use solana_sdk::{
+    instruction::Instruction, message::Message, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    transaction::Transaction,
+};
+use sunshine_core::{msg::GraphId, store::Datastore};
+
+use crate::{error::Error, Msg};
+
+use self::{
+    account::{command_create_account, CreateAccount},
+    generate_keypair::GenerateKeypair,
+    token::{command_create_token, command_mint, CreateToken, MintToken},
+    transfer::{command_transfer, Transfer},
+};
 
 pub mod account;
-pub mod keypair;
+pub mod delete_keypair;
+pub mod generate_keypair;
 pub mod token;
 pub mod transfer;
 
-// use super::Msg;
+pub const KEYPAIR_NAME_MARKER: &str = "KEYPAIR_NAME_MARKER";
+
 struct Ctx {
     client: RpcClient,
     keyring: DashMap<String, Arc<Keypair>>,
     pub_keys: DashMap<String, Pubkey>,
+    key_graph: GraphId,
+    db: Arc<dyn Datastore>,
 }
 
-#[derive(Debug)]
 struct Config {
     url: String,
-    keyring: HashMap<String, GenerateKeypair>,
+    keyring: HashMap<String, (String, String)>,
     pub_keys: HashMap<String, String>,
     db: Arc<dyn Datastore>,
+    key_graph: GraphId,
 }
 
 impl Ctx {
@@ -31,7 +52,7 @@ impl Ctx {
             .keyring
             .into_iter()
             .map(|(name, gen_keypair)| {
-                let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
+                let keypair = generate_keypair::generate_keypair(&gen_keypair.0, &gen_keypair.1)?;
 
                 println!("pubkey: {}", keypair.pubkey());
 
@@ -42,18 +63,22 @@ impl Ctx {
         let pub_keys = cfg
             .pub_keys
             .into_iter()
-            .map(|(name, pubkey)| Ok((name, Pubkey::from_str(&pubkey)?)))
+            .map(|(name, pubkey)| {
+                Ok((name, Pubkey::from_str(&pubkey).map_err(Error::ParsePubKey)?))
+            })
             .chain(
                 keyring
                     .iter()
                     .map(|kp| Ok((kp.key().clone(), kp.value().pubkey()))),
             )
             .collect::<Result<DashMap<_, _>, Error>>()?;
-        
-        Ok(Ctx 
+
+        Ok(Ctx {
             client: RpcClient::new(cfg.url),
             keyring,
             pub_keys,
+            key_graph: cfg.key_graph,
+            db: cfg.db,
         })
     }
 
@@ -61,14 +86,14 @@ impl Ctx {
         self.keyring
             .get(name)
             .map(|r| r.value().clone())
-            .ok_or(Box::new(CustomError::KeypairDoesntExist))
+            .ok_or(Error::KeypairDoesntExist)
     }
 
     fn get_pubkey(&self, name: &str) -> Result<Pubkey, Error> {
         self.pub_keys
             .get(name)
             .map(|pk| *pk)
-            .ok_or(Box::new(CustomError::PubkeyDoesntExist))
+            .ok_or(Error::PubkeyDoesntExist)
     }
 }
 
@@ -77,10 +102,18 @@ pub struct Command {
     kind: Kind,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
+pub enum CommandResponse {
+    Success,
+    Balance(u64),
+}
+// type CommandResult = Result<(u64, Vec<Instruction>), Error>;
+// type Error = Box<dyn std::error::Error>;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Kind {
-    GenerateKeypair(Option<keypair::GenerateConfig>),
-    DeleteKeypair(Option<keypair::DeleteConfig>),
+    GenerateKeypair(generate_keypair::GenerateKeypair),
+    DeleteKeypair(delete_keypair::DeleteKeypair),
     AddPubkey(Option<keypair::AddPubConfig>),
     DeletePubkey(String),
     CreateAccount(CreateAccount),
@@ -96,194 +129,217 @@ impl Command {
         &self,
         mut inputs: HashMap<String, Msg>,
     ) -> Result<HashMap<String, Msg>, Error> {
-        match self {
-            /*
-        Command::GenerateKeypair(name, gen_keypair) => {
-            if exec_ctx.keyring.contains_key(name) {
-                return Err(Box::new(CustomError::KeypairAlreadyExistsInKeyring));
+        match self.kind {
+            Kind::GenerateKeypair(k) => k.run(inputs).await,
+            Kind::DeleteKeypair(k) => k.run(inputs).await,
+            Kind::AddPubkey(name, pubkey) => {
+                if exec_ctx.pub_keys.contains_key(name) {
+                    return Err(Box::new(CustomError::PubkeyAlreadyExists));
+                }
+
+                let pubkey = Pubkey::from_str(pubkey)?;
+
+                exec_ctx.pub_keys.insert(name.clone(), pubkey);
+
+                Ok(CommandResponse::Success)
             }
+            _ => (), /*
+                     Kind::AddPubkey(name, pubkey) => {
+                         if exec_ctx.pub_keys.contains_key(name) {
+                             return Err(Box::new(CustomError::PubkeyAlreadyExists));
+                         }
 
-            if exec_ctx.pub_keys.contains_key(name) {
-                return Err(Box::new(CustomError::PubkeyAlreadyExists));
-            }
+                         let pubkey = Pubkey::from_str(pubkey)?;
 
-            let keypair = generate_keypair(&gen_keypair.passphrase, &gen_keypair.seed_phrase)?;
-            // let keypair = Arc::new(keypair);
+                         exec_ctx.pub_keys.insert(name.clone(), pubkey);
 
-            exec_ctx.pub_keys.insert(name.clone(), keypair.pubkey());
-            exec_ctx.keyring.insert(name.clone(), Arc::new(keypair));
+                         Ok(CommandResponse::Success)
+                     }
+                     Kind::DeletePubkey(k) => k.run(),
+                     Kind::CreateAccount(create_account) => {
+                         let owner = exec_ctx.get_pubkey(&create_account.owner)?;
+                         let fee_payer = exec_ctx.get_keypair(&create_account.fee_payer)?;
+                         let token = exec_ctx.get_pubkey(&create_account.token)?;
+                         let account = match create_account.account {
+                             Some(ref account) => Some(exec_ctx.get_keypair(account)?),
+                             None => None,
+                         };
 
-            Ok(CommandResponse::Success)
-        }
-        Command::DeleteKeypair(name) => {
-            if exec_ctx.keyring.remove(name).is_none() {
-                return Err(Box::new(CustomError::KeypairDoesntExist));
-            }maplit
-        Command::AddPubkey(name, pubkey) => {
-            if exec_ctx.pub_keys.contains_key(name) {
-                return Err(Box::new(CustomError::PubkeyAlreadyExists));
-            }
+                         let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
+                             &exec_ctx.client,
+                             fee_payer.pubkey(),
+                             token,
+                             owner,
+                             account.as_ref().map(|a| a.pubkey()),
+                         )
+                         .unwrap();
 
-            let pubkey = Pubkey::from_str(pubkey)?;
+                         let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
 
-            exec_ctx.pub_keys.insert(name.clone(), pubkey);
+                         if let Some(account) = account {
+                             signers.push(account.clone());
+                         };
 
-            Ok(CommandResponse::Success)
-        }
-        Command::DeletePubkey(name) => {
-            if exec_ctx.pub_keys.remove(name).is_none() {
-                return Err(Box::new(CustomError::PubkeyDoesntExist));
-            }
+                         execute_instructions(
+                             &signers,
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             &instructions,
+                             minimum_balance_for_rent_exemption,
+                         )?;
 
-            Ok(CommandResponse::Success)
-        }
-        Command::CreateAccount(create_account) => {
-            let owner = exec_ctx.get_pubkey(&create_account.owner)?;
-            let fee_payer = exec_ctx.get_keypair(&create_account.fee_payer)?;
-            let token = exec_ctx.get_pubkey(&create_account.token)?;
-            let account = match create_account.account {
-                Some(ref account) => Some(exec_ctx.get_keypair(account)?),
-                None => None,
-            };
+                         Ok(CommandResponse::Success)
+                     }
+                     Kind::GetBalance(name) => {
+                         let pubkey = exec_ctx.get_pubkey(&name)?;
 
-            let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
-                &exec_ctx.client,
-                fee_payer.pubkey(),
-                token,
-                owner,
-                account.as_ref().map(|a| a.pubkey()),
-            )
-            .unwrap();
+                         let balance = exec_ctx.client.get_balance(&pubkey)?;
 
-            let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
+                         Ok(CommandResponse::Balance(balance))
+                     }
+                     Kind::CreateToken(create_token) => {
+                         let fee_payer = exec_ctx.get_keypair(&create_token.fee_payer)?;
+                         let authority = exec_ctx.get_keypair(&create_token.authority)?;
+                         let token = exec_ctx.get_keypair(&create_token.token)?;
 
-            if let Some(account) = account {
-                signers.push(account.clone());
-            };
+                         let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             create_token.decimals,
+                             &token.pubkey(),
+                             authority.pubkey(),
+                             &create_token.memo,
+                         )?;
 
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
+                         let signers: Vec<Arc<dyn Signer>> =
+                             vec![authority.clone(), fee_payer.clone(), token.clone()];
 
-            Ok(CommandResponse::Success)
-        }
-        Command::GetBalance(name) => {
-            let pubkey = exec_ctx.get_pubkey(&name)?;
+                         execute_instructions(
+                             &signers,
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             &instructions,
+                             minimum_balance_for_rent_exemption,
+                         )?;
 
-            let balance = exec_ctx.client.get_balance(&pubkey)?;
+                         Ok(CommandResponse::Success)
+                     }
+                     Kind::RequestAirdrop(name, amount) => {
+                         let pubkey = exec_ctx.get_pubkey(&name)?;
 
-            Ok(CommandResponse::Balance(balance))
-        }
-        Command::CreateToken(create_token) => {
-            let fee_payer = exec_ctx.get_keypair(&create_token.fee_payer)?;
-            let authority = exec_ctx.get_keypair(&create_token.authority)?;
-            let token = exec_ctx.get_keypair(&create_token.token)?;
+                         exec_ctx.client.request_airdrop(&pubkey, *amount)?;
 
-            let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                create_token.decimals,
-                &token.pubkey(),
-                authority.pubkey(),
-                &create_token.memo,
-            )?;
+                         Ok(CommandResponse::Success)
+                     }
+                     Kind::MintToken(mint_token) => {
+                         let token = exec_ctx.get_keypair(&mint_token.token)?;
+                         let mint_authority = exec_ctx.get_keypair(&mint_token.mint_authority)?;
+                         let recipient = exec_ctx.get_pubkey(&mint_token.recipient)?;
+                         let fee_payer = exec_ctx.get_keypair(&mint_token.fee_payer)?;
 
-            let signers: Vec<Arc<dyn Signer>> =
-                vec![authority.clone(), fee_payer.clone(), token.clone()];
+                         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
+                             &exec_ctx.client,
+                             token.pubkey(),
+                             mint_token.amount,
+                             recipient,
+                             mint_authority.pubkey(),
+                         )?;
 
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
+                         let signers: Vec<Arc<dyn Signer>> =
+                             vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
 
-            Ok(CommandResponse::Success)
-        }
-        Command::RequestAirdrop(name, amount) => {
-            let pubkey = exec_ctx.get_pubkey(&name)?;
+                         execute_instructions(
+                             &signers,
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             &instructions,
+                             minimum_balance_for_rent_exemption,
+                         )?;
 
-            exec_ctx.client.request_airdrop(&pubkey, *amount)?;
+                         Ok(CommandResponse::Success)
+                     }
+                     Command::Transfer(transfer) => {
+                         let token = exec_ctx.get_pubkey(&transfer.token)?;
+                         let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
+                         let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
+                         let sender = match transfer.sender {
+                             Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
+                             None => None,
+                         };
+                         let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
 
-            Ok(CommandResponse::Success)
-        }
-        Command::MintToken(mint_token) => {
-            let token = exec_ctx.get_keypair(&mint_token.token)?;
-            let mint_authority = exec_ctx.get_keypair(&mint_token.mint_authority)?;
-            let recipient = exec_ctx.get_pubkey(&mint_token.recipient)?;
-            let fee_payer = exec_ctx.get_keypair(&mint_token.fee_payer)?;
+                         let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             token,
+                             transfer.amount,
+                             recipient,
+                             sender.as_ref().map(|s| s.pubkey()),
+                             sender_owner.pubkey(),
+                             transfer.allow_unfunded_recipient,
+                             transfer.fund_recipient,
+                             transfer.memo.clone(),
+                         )?;
 
-            let (minimum_balance_for_rent_exemption, instructions) = command_mint(
-                &exec_ctx.client,
-                token.pubkey(),
-                mint_token.amount,
-                recipient,
-                mint_authority.pubkey(),
-            )?;
+                         let mut signers: Vec<Arc<dyn Signer>> =
+                             vec![fee_payer.clone(), sender_owner.clone()];
 
-            let signers: Vec<Arc<dyn Signer>> =
-                vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
+                         if let Some(sender) = sender {
+                             signers.push(sender);
+                         }
 
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
+                         execute_instructions(
+                             &signers,
+                             &exec_ctx.client,
+                             &fee_payer.pubkey(),
+                             &instructions,
+                             minimum_balance_for_rent_exemption,
+                         )?;
 
-            Ok(CommandResponse::Success)
-        }
-        Command::Transfer(transfer) => {
-            let token = exec_ctx.get_pubkey(&transfer.token)?;
-            let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
-            let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
-            let sender = match transfer.sender {
-                Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
-                None => None,
-            };
-            let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
-
-            let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                token,
-                transfer.amount,
-                recipient,
-                sender.as_ref().map(|s| s.pubkey()),
-                sender_owner.pubkey(),
-                transfer.allow_unfunded_recipient,
-                transfer.fund_recipient,
-                transfer.memo.clone(),
-            )?;
-
-            let mut signers: Vec<Arc<dyn Signer>> =
-                vec![fee_payer.clone(), sender_owner.clone()];
-
-            if let Some(sender) = sender {
-                signers.push(sender);
-            }
-
-            execute_instructions(
-                &signers,
-                &exec_ctx.client,
-                &fee_payer.pubkey(),
-                &instructions,
-                minimum_balance_for_rent_exemption,
-            )?;
-
-            Ok(CommandResponse::Success)
-        }
-        Command::Print(s) => {
-            println!("{}", s);
-            Ok(CommandResponse::Success)
-        }
-        */
+                         Ok(CommandResponse::Success)
+                     }*/
         }
     }
+}
+
+fn execute_instructions(
+    signers: &[Arc<dyn Signer>],
+    client: &RpcClient,
+    fee_payer: &Pubkey,
+    instructions: &[Instruction],
+    minimum_balance_for_rent_exemption: u64,
+) -> Result<(), Error> {
+    /*let message = if let Some(nonce_account) = config.nonce_account.as_ref() {
+        Message::new_with_nonce(
+            instructions,
+            fee_payer,
+            nonce_account,
+            config.nonce_authority.as_ref().unwrap(),
+        )
+    } else {
+        Message::new(&instructions, fee_payer)
+    };*/
+
+    let message = Message::new(instructions, Some(fee_payer));
+
+    let (recent_blockhash, fee_calculator) = client.get_recent_blockhash()?;
+
+    let balance = client.get_balance(fee_payer)?;
+
+    if balance < minimum_balance_for_rent_exemption + fee_calculator.calculate_fee(&message) {
+        panic!("insufficient balance");
+    }
+
+    let mut transaction = Transaction::new_unsigned(message);
+
+    let signers = signers
+        .iter()
+        .map(|s| s.as_ref())
+        .collect::<Vec<&dyn Signer>>();
+
+    transaction.try_sign(&signers, recent_blockhash)?;
+
+    let signature = client.send_and_confirm_transaction(&transaction)?;
+
+    Ok(())
 }

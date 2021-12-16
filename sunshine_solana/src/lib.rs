@@ -31,10 +31,10 @@ use tokio::time::sleep;
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 use tokio::time::Duration;
+use uuid::Uuid;
 
 mod commands;
 mod error;
-
 use error::Error;
 
 type FlowId = GraphId;
@@ -218,7 +218,13 @@ impl FlowContext {
 
 type EntryId = NodeId;
 
-type Msg = i32;
+#[derive(Debug)]
+enum Msg {
+    Integer(i64),
+    Keypair(Keypair),
+    String(String),
+    NodeId(Uuid),
+}
 
 struct Flow {
     start_nodes: Vec<Sender<Msg>>,
@@ -244,50 +250,6 @@ async fn run_command(
         _ => unreachable!(),
     }
 }
-
-/*
-fn execute_instructions(
-    signers: &[Arc<dyn Signer>],
-    client: &RpcClient,
-    fee_payer: &Pubkey,
-    instructions: &[Instruction],
-    minimum_balance_for_rent_exemption: u64,
-) -> Result<(), Error> {
-    /*let message = if let Some(nonce_account) = config.nonce_account.as_ref() {
-        Message::new_with_nonce(
-            instructions,
-            fee_payer,
-            nonce_account,
-            config.nonce_authority.as_ref().unwrap(),
-        )
-    } else {
-        Message::new(&instructions, fee_payer)
-    };*/
-
-    let message = Message::new(instructions, Some(fee_payer));
-
-    let (recent_blockhash, fee_calculator) = client.get_recent_blockhash()?;
-
-    let balance = client.get_balance(fee_payer)?;
-
-    if balance < minimum_balance_for_rent_exemption + fee_calculator.calculate_fee(&message) {
-        panic!("insufficient balance");
-    }
-
-    let mut transaction = Transaction::new_unsigned(message);
-
-    let signers = signers
-        .iter()
-        .map(|s| s.as_ref())
-        .collect::<Vec<&dyn Signer>>();
-
-    transaction.try_sign(&signers, recent_blockhash)?;
-
-    let signature = client.send_and_confirm_transaction(&transaction)?;
-
-    Ok(())
-}
-*/
 
 // flow api
 
