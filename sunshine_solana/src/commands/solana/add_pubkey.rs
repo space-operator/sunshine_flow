@@ -8,7 +8,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
 
 use super::Ctx;
 
@@ -22,12 +22,12 @@ impl AddPubkey {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let name = match &self.name {
             Some(s) => s.clone(),
             None => match inputs.remove("name") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("name".to_string())),
             },
         };
@@ -35,7 +35,7 @@ impl AddPubkey {
         let pubkey = match &self.pubkey {
             Some(s) => s.clone(),
             None => match inputs.remove("pubkey") {
-                Some(OutputType::Pubkey(s)) => s,
+                Some(ValueType::Pubkey(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };
@@ -49,7 +49,7 @@ impl AddPubkey {
         // let pubkey = Pubkey::from_str(self.pubkey)?;
 
         Ok(hashmap! {
-            "pubkey".to_owned()=>OutputType::Pubkey(pubkey),
+            "pubkey".to_owned()=>ValueType::Pubkey(pubkey),
         })
     }
 }

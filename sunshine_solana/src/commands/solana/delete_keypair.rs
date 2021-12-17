@@ -1,14 +1,11 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use either::Either;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
 
 use super::Ctx;
 
@@ -20,15 +17,15 @@ pub struct DeleteKeypair {
 impl DeleteKeypair {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        ctx: Arc<Ctx>,
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         match &self.name {
             Either::Left(name) => {
                 let name = match name {
                     Some(s) => s.clone(),
                     None => match inputs.remove("name") {
-                        Some(OutputType::String(s)) => s,
+                        Some(ValueType::String(s)) => s,
                         _ => return Err(Error::ArgumentNotFound("name".to_string())),
                     },
                 };
@@ -38,29 +35,25 @@ impl DeleteKeypair {
                 let node_id = match node_id {
                     Some(id) => *id,
                     None => match inputs.remove("node_id") {
-                        Some(OutputType::NodeId(id)) => id,
+                        Some(ValueType::NodeId(id)) => id,
                         _ => return Err(Error::ArgumentNotFound("node_id".to_string())),
                     },
                 };
+
                 Self::delete_from_node_id(ctx, node_id).await
             }
         }
     }
 
     async fn delete_from_name(
-        ctx: Arc<Mutex<Ctx>>,
+        ctx: Arc<Ctx>,
         name: String,
-    ) -> Result<HashMap<String, OutputType>, Error> {
-        let graph = ctx
-            .lock()
-            .unwrap()
-            .db
-            .read_graph(ctx.lock().unwrap().key_graph)
-            .await?;
+    ) -> Result<HashMap<String, ValueType>, Error> {
+        let graph = ctx.db.read_graph(ctx.key_graph).await?;
 
         for node in graph.nodes {
             for edge in node.inbound_edges {
-                let props = ctx.lock().unwrap().db.read_edge_properties(edge).await?;
+                let props = ctx.db.read_edge_properties(edge).await?;
                 match props.get(super::KEYPAIR_NAME_MARKER) {
                     Some(n) if n == name.as_str() => {
                         return Self::delete_from_node_id(ctx, node.node_id).await;
@@ -74,17 +67,15 @@ impl DeleteKeypair {
     }
 
     async fn delete_from_node_id(
-        ctx: Arc<Mutex<Ctx>>,
+        ctx: Arc<Ctx>,
         node_id: NodeId,
-    ) -> Result<HashMap<String, OutputType>, Error> {
-        ctx.lock()
-            .unwrap()
-            .db
-            .delete_node(node_id, ctx.lock().unwrap().key_graph)
-            .await?;
+    ) -> Result<HashMap<String, ValueType>, Error> {
+        ctx.db.delete_node(node_id, ctx.key_graph).await?;
+
+        ctx.keyring.find_remove(|(name, keypair)| if keypair.)
 
         Ok(hashmap! {
-            "deleted_node_id".to_owned()=> OutputType::DeletedNode(node_id)
+            "deleted_node_id".to_owned()=> ValueType::DeletedNode(node_id)
         })
     }
 }

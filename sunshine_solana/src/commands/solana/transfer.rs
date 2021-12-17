@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{program_pack::Pack, pubkey::Pubkey, system_program};
+use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_program};
 use spl_token::instruction::transfer_checked;
 
 use crate::CommandResult;
 
-use super::mint_token::resolve_mint_info;
+use super::{instructions::execute, mint_token::resolve_mint_info};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transfer {
@@ -18,6 +20,57 @@ pub struct Transfer {
     pub allow_unfunded_recipient: bool,
     pub fund_recipient: bool,
     pub memo: Option<String>,
+}
+
+impl Transfer {
+    pub(crate) async fn run(
+        &self,
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
+        let name = match &self.name {
+            Some(s) => s.clone(),
+            None => match inputs.remove("name") {
+                Some(ValueType::String(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("name".to_string())),
+            },
+        };
+
+        let token = ctx.get_pubkey(&transfer.token)?;
+        let recipient = ctx.get_pubkey(&transfer.recipient)?;
+        let fee_payer = ctx.get_keypair(&transfer.fee_payer)?;
+        let sender = match transfer.sender {
+            Some(ref sender) => Some(ctx.get_keypair(sender)?),
+            None => None,
+        };
+        let sender_owner = ctx.get_keypair(&transfer.sender_owner)?;
+
+        let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
+            &ctx.client,
+            &fee_payer.pubkey(),
+            token,
+            transfer.amount,
+            recipient,
+            sender.as_ref().map(|s| s.pubkey()),
+            sender_owner.pubkey(),
+            transfer.allow_unfunded_recipient,
+            transfer.fund_recipient,
+            transfer.memo.clone(),
+        )?;
+
+        let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone(), sender_owner.clone()];
+
+        if let Some(sender) = sender {
+            signers.push(sender);
+        }
+
+        let signature = execute(
+            &signers,
+            &ctx.client,
+            &fee_payer.pubkey(),
+            &instructions,
+            minimum_balance_for_rent_exemption,
+        )?;
+    }
 }
 
 // https://spl.solana.com/associated-token-account

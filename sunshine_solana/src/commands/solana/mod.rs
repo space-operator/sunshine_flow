@@ -8,14 +8,12 @@ use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
-use sunshine_core::{msg::GraphId, store::Datastore};
+use sunshine_core::msg::{CreateEdge, GraphId, Properties};
+use sunshine_core::store::Datastore;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
 
-use self::{
-    token::{CreateToken, MintToken},
-    transfer::Transfer,
-};
+use sunshine_core::msg::NodeId;
 
 pub mod instructions;
 
@@ -28,80 +26,129 @@ pub mod generate_keypair;
 pub mod get_balance;
 pub mod mint_token;
 pub mod request_airdrop;
-pub mod token;
 pub mod transfer;
 
 pub const KEYPAIR_NAME_MARKER: &str = "KEYPAIR_NAME_MARKER";
 
-struct Ctx {
-    client: RpcClient,
-    keyring: DashMap<String, Arc<Keypair>>,
-    pub_keys: DashMap<String, Pubkey>,
-    key_graph: GraphId,
-    db: Arc<dyn Datastore>,
-}
-
 struct Config {
     url: String,
-    keyring: HashMap<String, (String, String)>,
-    pub_keys: HashMap<String, String>,
     db: Arc<dyn Datastore>,
-    key_graph: GraphId,
+    wallet_graph: GraphId,
 }
+
+struct Ctx {
+    client: RpcClient,
+    db: Arc<dyn Datastore>,
+    wallet_graph: GraphId,
+}
+
+const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
+const NAME_MARKER: &str = "NAME_MARKER";
 
 impl Ctx {
     fn new(cfg: Config) -> Result<Ctx, Error> {
-        let keyring = cfg
-            .keyring
-            .into_iter()
-            .map(|(name, gen_keypair)| {
-                let keypair = generate_keypair::generate_keypair(&gen_keypair.0, &gen_keypair.1)?;
-
-                println!("pubkey: {}", keypair.pubkey());
-
-                Ok((name, Arc::new(keypair)))
-            })
-            .collect::<Result<DashMap<_, _>, Error>>()?;
-
-        let pub_keys = cfg
-            .pub_keys
-            .into_iter()
-            .map(|(name, pubkey)| {
-                Ok((name, Pubkey::from_str(&pubkey).map_err(Error::ParsePubKey)?))
-            })
-            .chain(
-                keyring
-                    .iter()
-                    .map(|kp| Ok((kp.key().clone(), kp.value().pubkey()))),
-            )
-            .collect::<Result<DashMap<_, _>, Error>>()?;
-
         Ok(Ctx {
             client: RpcClient::new(cfg.url),
-            keyring,
-            pub_keys,
-            key_graph: cfg.key_graph,
+            wallet_graph: cfg.wallet_graph,
             db: cfg.db,
         })
     }
 
-    fn get_keypair(&self, name: &str) -> Result<Arc<Keypair>, Error> {
-        self.keyring
-            .get(name)
-            .map(|r| r.value().clone())
-            .ok_or(Error::KeypairDoesntExist)
+    async fn insert_keypair(&self, name: String, keypair: Keypair) -> Result<NodeId, Error> {
+        let graph = self.db.read_graph(self.wallet_graph).await?;
+
+        if graph.nodes.iter().find(|node| {
+            if let Some(node_name) = node.properties.get(NAME_MARKER) {
+                node_name == name
+            } else {
+                false
+            }
+        }) {
+            return Err(Error::KeypairAlreadyExistsInKeyring);
+        }
+
+        let mut props = Properties::default();
+
+        props.insert(KEYPAIR_MARKER.to_owned(), keypair.to_base58_string().into());
+        props.insert(NAME_MARKER.to_owned(), name.into());
+
+        let (_, node_id) = self.db.create_node((self.wallet_graph, props)).await?;
+
+        Ok(node_id)
     }
 
-    fn get_pubkey(&self, name: &str) -> Result<Pubkey, Error> {
-        self.pub_keys
-            .get(name)
-            .map(|pk| *pk)
-            .ok_or(Error::PubkeyDoesntExist)
+    async fn remove_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
+        let keypair = self.get_keypair(node_id).await?;
+
+        self.db.delete_node(node_id, self.wallet_graph).await?;
+
+        Ok(keypair)
+    }
+
+    async fn get_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
+        let node = self.db.read_node(node_id).await?;
+
+        let keypair = node
+            .properties
+            .get(KEYPAIR_MARKER)
+            .unwrap()
+            .as_str()
+            .unwrap();
+
+        let keypair = Keypair::from_base58_string(keypair).unwrap();
+
+        Ok(keypair)
+    }
+
+    async fn insert_pubkey(&self, name: String, pubkey: Pubkey) -> Result<NodeId, Error> {
+        let graph = self.db.read_graph(self.wallet_graph).await?;
+
+        if graph.nodes.iter().find(|node| {
+            if let Some(node_name) = node.properties.get(NAME_MARKER) {
+                node_name == name
+            } else {
+                false
+            }
+        }) {
+            return Err(Error::KeypairAlreadyExistsInKeyring);
+        }
+
+        let mut props = Properties::default();
+
+        props.insert(PUBKEY_MARKER.to_owned(), keypair.to_base58_string().into());
+        props.insert(NAME_MARKER.to_owned(), name.into());
+
+        let (_, node_id) = self.db.create_node((self.wallet_graph, props)).await?;
+
+        Ok(node_id)
+    }
+
+    async fn remove_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
+        let keypair = self.get_keypair(node_id).await?;
+
+        self.db.delete_node(node_id, self.wallet_graph).await?;
+
+        Ok(keypair)
+    }
+
+    async fn get_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
+        let node = self.db.read_node(node_id).await?;
+
+        let keypair = node
+            .properties
+            .get(KEYPAIR_MARKER)
+            .unwrap()
+            .as_str()
+            .unwrap();
+
+        let keypair = Keypair::from_base58_string(keypair).unwrap();
+
+        Ok(keypair)
     }
 }
 
 pub struct Command {
-    ctx: Arc<Mutex<Ctx>>,
+    ctx: Arc<Ctx>,
     kind: Kind,
 }
 
@@ -123,69 +170,26 @@ pub enum Kind {
     GetBalance(get_balance::GetBalance),
     CreateToken(create_token::CreateToken),
     RequestAirdrop(request_airdrop::RequestAirdrop),
-    MintToken(MintToken),
-    Transfer(Transfer),
+    MintToken(mint_token::MintToken),
+    Transfer(transfer::Transfer),
 }
 
 impl Command {
     pub(crate) async fn run(
         &self,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         match self.kind {
-            Kind::GenerateKeypair(k) => k.run(inputs).await,
-            Kind::DeleteKeypair(k) => k.run(self.ctx, inputs).await,
-            Kind::AddPubkey(k) => k.run(self.ctx, inputs).await,
-            Kind::DeletePubkey(k) => k.run(self.ctx, inputs).await,
-            Kind::CreateAccount(k) => k.run(self.ctx, inputs).await,
-            Kind::GetBalance(k) => k.run(self.ctx, inputs).await,
-            Kind::CreateToken(k) => k.run(self.ctx, inputs).await,
-            Kind::RequestAirdrop(k) => k.run(self.ctx, inputs).await,
-            Kind::MintToken(k) => k.run(self.ctx, inputs).await,
-
-            _ => (), /*
-
-
-                     Command::Transfer(transfer) => {
-                         let token = exec_ctx.get_pubkey(&transfer.token)?;
-                         let recipient = exec_ctx.get_pubkey(&transfer.recipient)?;
-                         let fee_payer = exec_ctx.get_keypair(&transfer.fee_payer)?;
-                         let sender = match transfer.sender {
-                             Some(ref sender) => Some(exec_ctx.get_keypair(sender)?),
-                             None => None,
-                         };
-                         let sender_owner = exec_ctx.get_keypair(&transfer.sender_owner)?;
-
-                         let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
-                             &exec_ctx.client,
-                             &fee_payer.pubkey(),
-                             token,
-                             transfer.amount,
-                             recipient,
-                             sender.as_ref().map(|s| s.pubkey()),
-                             sender_owner.pubkey(),
-                             transfer.allow_unfunded_recipient,
-                             transfer.fund_recipient,
-                             transfer.memo.clone(),
-                         )?;
-
-                         let mut signers: Vec<Arc<dyn Signer>> =
-                             vec![fee_payer.clone(), sender_owner.clone()];
-
-                         if let Some(sender) = sender {
-                             signers.push(sender);
-                         }
-
-                         execute_instructions(
-                             &signers,
-                             &exec_ctx.client,
-                             &fee_payer.pubkey(),
-                             &instructions,
-                             minimum_balance_for_rent_exemption,
-                         )?;
-
-                         Ok(CommandResponse::Success)
-                     }*/
+            Kind::GenerateKeypair(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::DeleteKeypair(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::AddPubkey(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::DeletePubkey(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::CreateAccount(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::GetBalance(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::CreateToken(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
         }
     }
 }

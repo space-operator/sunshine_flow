@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, OutputType};
+use crate::{Error, ValueType};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {}
@@ -11,8 +11,8 @@ pub enum Command {}
 impl Command {
     pub(crate) async fn run(
         &self,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         return Ok(inputs);
     }
 }

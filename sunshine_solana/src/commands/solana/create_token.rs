@@ -9,7 +9,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_instruction};
 use spl_token::state::Mint;
 
-use crate::{error::Error, CommandResult, OutputType};
+use crate::{error::Error, CommandResult, ValueType};
 
 use super::{instructions::execute, Ctx};
 
@@ -25,13 +25,13 @@ pub struct CreateToken {
 impl CreateToken {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        ctx: Arc<Ctx>,
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let fee_payer = match &self.fee_payer {
             Some(s) => s.clone(),
             None => match inputs.remove("fee_payer") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -39,7 +39,7 @@ impl CreateToken {
         let decimals = match &self.decimals {
             Some(s) => s.clone(),
             None => match inputs.remove("decimals") {
-                Some(OutputType::U8(s)) => s,
+                Some(ValueType::U8(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("decimals".to_string())),
             },
         };
@@ -47,7 +47,7 @@ impl CreateToken {
         let authority = match &self.authority {
             Some(s) => s.clone(),
             None => match inputs.remove("authority") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("authority".to_string())),
             },
         };
@@ -55,7 +55,7 @@ impl CreateToken {
         let token = match &self.token {
             Some(s) => s.clone(),
             None => match inputs.remove("token") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -63,17 +63,17 @@ impl CreateToken {
         let memo = match &self.memo {
             Some(s) => s.clone(),
             None => match inputs.remove("memo") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
 
-        let fee_payer = ctx.lock().unwrap().get_keypair(&fee_payer)?;
-        let authority = ctx.lock().unwrap().get_keypair(&authority)?;
-        let token = ctx.lock().unwrap().get_keypair(&token)?;
+        let fee_payer = ctx.get_keypair(&fee_payer)?;
+        let authority = ctx.get_keypair(&authority)?;
+        let token = ctx.get_keypair(&token)?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
-            &ctx.lock().unwrap().client,
+            &ctx.client,
             &fee_payer.pubkey(),
             decimals,
             &token.pubkey(),
@@ -86,14 +86,14 @@ impl CreateToken {
 
         let signature = execute(
             &signers,
-            &ctx.lock().unwrap().client,
+            &ctx.client,
             &fee_payer.pubkey(),
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;
 
         Ok(hashmap! {
-            "signature".to_owned()=>OutputType::Success(signature),
+            "signature".to_owned()=>ValueType::Success(signature),
         })
     }
 }

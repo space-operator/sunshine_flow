@@ -12,7 +12,7 @@ use solana_sdk::{
 
 use crate::CommandResult;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
 
 use super::{instructions::execute, Ctx};
 
@@ -28,12 +28,12 @@ impl CreateAccount {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let owner = match &self.owner {
             Some(s) => s.clone(),
             None => match inputs.remove("owner") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("owner".to_string())),
             },
         };
@@ -41,7 +41,7 @@ impl CreateAccount {
         let fee_payer = match &self.fee_payer {
             Some(s) => s.clone(),
             None => match inputs.remove("fee_payer") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -49,28 +49,28 @@ impl CreateAccount {
         let token = match &self.token {
             Some(s) => s.clone(),
             None => match inputs.remove("token") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
         let account = match &self.account {
             Some(s) => s.clone(),
             None => match inputs.remove("account") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("account".to_string())),
             },
         };
 
-        let owner = ctx.lock().unwrap().get_pubkey(&owner)?;
-        let fee_payer = ctx.lock().unwrap().get_keypair(&fee_payer)?;
-        let token = ctx.lock().unwrap().get_pubkey(&token)?;
+        let owner = ctx.get_pubkey(&owner)?;
+        let fee_payer = ctx.get_keypair(&fee_payer)?;
+        let token = ctx.get_pubkey(&token)?;
         let account = match self.account {
-            Some(ref account) => Some(ctx.lock().unwrap().get_keypair(account)?),
+            Some(ref account) => Some(ctx.get_keypair(account)?),
             None => None,
         };
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
-            &ctx.lock().unwrap().client,
+            &ctx.client,
             fee_payer.pubkey(),
             token,
             owner,
@@ -86,14 +86,14 @@ impl CreateAccount {
 
         let signature = execute(
             &signers,
-            &ctx.lock().unwrap().client,
+            &ctx.client,
             &fee_payer.pubkey(),
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;
 
         Ok(hashmap! {
-             "signature".to_owned() => OutputType::Success(signature),
+             "signature".to_owned() => ValueType::Success(signature),
         })
     }
 }

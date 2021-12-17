@@ -10,7 +10,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use spl_token::instruction::mint_to_checked;
 
-use crate::{error::Error, CommandResult, OutputType};
+use crate::{error::Error, CommandResult, ValueType};
 
 use super::{instructions::execute, Ctx};
 
@@ -27,12 +27,12 @@ impl MintToken {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let token = match &self.token {
             Some(s) => s.clone(),
             None => match inputs.remove("token") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -40,28 +40,28 @@ impl MintToken {
         let recipient = match &self.recipient {
             Some(s) => s.clone(),
             None => match inputs.remove("recipient") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
             },
         };
         let mint_authority = match &self.mint_authority {
             Some(s) => s.clone(),
             None => match inputs.remove("mint_authority") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("mint_authority".to_string())),
             },
         };
         let amount = match &self.amount {
             Some(s) => s.clone(),
             None => match inputs.remove("amount") {
-                Some(OutputType::Float(s)) => s,
+                Some(ValueType::Float(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("amount".to_string())),
             },
         };
         let fee_payer = match &self.fee_payer {
             Some(s) => s.clone(),
             None => match inputs.remove("fee_payer") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -91,7 +91,7 @@ impl MintToken {
         )?;
 
         Ok(hashmap! {
-            "signature".to_owned() => OutputType::Success(signature),
+            "signature".to_owned() => ValueType::Success(signature),
         })
     }
 }

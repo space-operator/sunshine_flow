@@ -7,7 +7,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
 
 use super::Ctx;
 
@@ -20,13 +20,13 @@ pub struct DeletePubkey {
 impl DeletePubkey {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        ctx: Arc<Ctx>,
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let name = match &self.name {
             Some(s) => s.clone(),
             None => match inputs.remove("name") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("name".to_string())),
             },
         };
@@ -34,15 +34,15 @@ impl DeletePubkey {
         let pubkey = match &self.pubkey {
             Some(s) => s.clone(),
             None => match inputs.remove("pubkey") {
-                Some(OutputType::Pubkey(s)) => s,
+                Some(ValueType::Pubkey(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };
 
-        if ctx.lock().unwrap().pub_keys.contains_key(&name) {
-            ctx.lock().unwrap().pub_keys.remove(&name);
+        if ctx.pub_keys.contains_key(&name) {
+            ctx..pub_keys.remove(&name);
             Ok(hashmap! {
-                 "pubkey".to_owned() => OutputType::Pubkey(pubkey),
+                 "pubkey".to_owned() => ValueType::Pubkey(pubkey),
             })
         } else {
             return Err(Error::PubkeyDoesntExist);

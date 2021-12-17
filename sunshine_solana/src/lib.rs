@@ -202,7 +202,7 @@ impl FlowContext {
                 }
 
                 for node in start_nodes {
-                    node.send(OutputType::default()).unwrap();
+                    node.send(ValueType::default()).unwrap();
                 }
             }
         };
@@ -225,9 +225,9 @@ impl FlowContext {
 type EntryId = NodeId;
 
 #[derive(Debug)]
-enum OutputType {
+enum ValueType {
     Integer(i64),
-    Keypair(Keypair),
+    Keypair(Arc<Keypair>),
     String(String),
     NodeId(Uuid),
     DeletedNode(Uuid),
@@ -237,23 +237,25 @@ enum OutputType {
     U8(u8),
     U64(u64),
     Float(f64),
+    Bool(bool),
+    StringOpt(Option<String>),
 }
 
 struct Flow {
-    start_nodes: Vec<Sender<OutputType>>,
+    start_nodes: Vec<Sender<ValueType>>,
     nodes: HashMap<NodeId, FlowNode>,
 }
 
 struct FlowNode {
-    inputs: HashMap<String, Receiver<OutputType>>,
-    outputs: HashMap<String, Vec<Sender<OutputType>>>,
+    inputs: HashMap<String, Receiver<ValueType>>,
+    outputs: HashMap<String, Vec<Sender<ValueType>>>,
     cmd: Command,
 }
 
 async fn run_command(
     cmd: &Command,
-    inputs: HashMap<String, OutputType>,
-) -> Result<HashMap<String, OutputType>, Error> {
+    inputs: HashMap<String, ValueType>,
+) -> Result<HashMap<String, ValueType>, Error> {
     println!("{:#?}", cmd);
 
     println!("{:#?}", inputs);

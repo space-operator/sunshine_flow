@@ -1,42 +1,60 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use bip39::{Language, Mnemonic, Seed};
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::{keypair_from_seed, Keypair};
+use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, OutputType};
+use crate::{error::Error, ValueType};
+
+use super::Ctx;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenerateKeypair {
     pub seed_phrase: Option<String>,
     pub passphrase: Option<String>,
+    pub save: Option<Option<Name>>,
 }
 
 impl GenerateKeypair {
     pub(crate) async fn run(
         &self,
-        mut inputs: HashMap<String, OutputType>,
-    ) -> Result<HashMap<String, OutputType>, Error> {
+        ctx: Arc<Ctx>,
+        mut inputs: HashMap<String, ValueType>,
+    ) -> Result<HashMap<String, ValueType>, Error> {
         let seed_phrase = match &self.seed_phrase {
             Some(s) => s.clone(),
             None => match inputs.remove("seed_phrase") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("seed_phrase".to_string())),
             },
         };
         let passphrase = match &self.passphrase {
             Some(s) => s.clone(),
             None => match inputs.remove("passphrase") {
-                Some(OutputType::String(s)) => s,
+                Some(ValueType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
+            },
+        };
+        let save: Option<String> = match &self.save {
+            Some(val) => val,
+            None => match inputs.remove("save") {
+                Some(ValueType::StringOpt(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("save".to_string())),
             },
         };
 
         let keypair = generate_keypair(&passphrase, &seed_phrase)?;
 
+        let keypair = Arc::new(keypair);
+
+        if let Some(name) = save {
+            ctx.keyring.insert_keypair(node_id, keypair.clone())?;
+        }
+
         return Ok(hashmap! {
-            "keypair".to_owned() => OutputType::Keypair(keypair),
+            "keypair".to_owned() => ValueType::Keypair(keypair),
         });
     }
 }
