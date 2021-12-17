@@ -1,4 +1,3 @@
-use super::Msg;
 use serde::{Deserialize, Serialize};
 
 pub mod simple;

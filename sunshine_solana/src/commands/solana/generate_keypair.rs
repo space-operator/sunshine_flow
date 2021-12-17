@@ -5,7 +5,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::{keypair_from_seed, Keypair};
 
-use crate::{error::Error, Msg};
+use crate::{error::Error, OutputType};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenerateKeypair {
@@ -16,19 +16,19 @@ pub struct GenerateKeypair {
 impl GenerateKeypair {
     pub(crate) async fn run(
         &self,
-        mut inputs: HashMap<String, Msg>,
-    ) -> Result<HashMap<String, Msg>, Error> {
+        mut inputs: HashMap<String, OutputType>,
+    ) -> Result<HashMap<String, OutputType>, Error> {
         let seed_phrase = match &self.seed_phrase {
             Some(s) => s.clone(),
             None => match inputs.remove("seed_phrase") {
-                Some(Msg::String(s)) => s,
+                Some(OutputType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("seed_phrase".to_string())),
             },
         };
         let passphrase = match &self.passphrase {
             Some(s) => s.clone(),
             None => match inputs.remove("passphrase") {
-                Some(Msg::String(s)) => s,
+                Some(OutputType::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
             },
         };
@@ -36,7 +36,7 @@ impl GenerateKeypair {
         let keypair = generate_keypair(&passphrase, &seed_phrase)?;
 
         return Ok(hashmap! {
-            "keypair".to_owned() => Msg::Keypair(keypair),
+            "keypair".to_owned() => OutputType::Keypair(keypair),
         });
     }
 }

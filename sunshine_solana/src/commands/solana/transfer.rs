@@ -5,7 +5,7 @@ use spl_token::instruction::transfer_checked;
 
 use crate::CommandResult;
 
-use super::token::resolve_mint_info;
+use super::mint_token::resolve_mint_info;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transfer {

@@ -8,7 +8,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, Msg};
+use crate::{error::Error, OutputType};
 
 use super::Ctx;
 
@@ -21,14 +21,14 @@ impl DeleteKeypair {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Mutex<Ctx>>,
-        mut inputs: HashMap<String, Msg>,
-    ) -> Result<HashMap<String, Msg>, Error> {
+        mut inputs: HashMap<String, OutputType>,
+    ) -> Result<HashMap<String, OutputType>, Error> {
         match &self.name {
             Either::Left(name) => {
                 let name = match name {
                     Some(s) => s.clone(),
                     None => match inputs.remove("name") {
-                        Some(Msg::String(s)) => s,
+                        Some(OutputType::String(s)) => s,
                         _ => return Err(Error::ArgumentNotFound("name".to_string())),
                     },
                 };
@@ -38,7 +38,7 @@ impl DeleteKeypair {
                 let node_id = match node_id {
                     Some(id) => *id,
                     None => match inputs.remove("node_id") {
-                        Some(Msg::NodeId(id)) => id,
+                        Some(OutputType::NodeId(id)) => id,
                         _ => return Err(Error::ArgumentNotFound("node_id".to_string())),
                     },
                 };
@@ -50,7 +50,7 @@ impl DeleteKeypair {
     async fn delete_from_name(
         ctx: Arc<Mutex<Ctx>>,
         name: String,
-    ) -> Result<HashMap<String, Msg>, Error> {
+    ) -> Result<HashMap<String, OutputType>, Error> {
         let graph = ctx
             .lock()
             .unwrap()
@@ -76,7 +76,7 @@ impl DeleteKeypair {
     async fn delete_from_node_id(
         ctx: Arc<Mutex<Ctx>>,
         node_id: NodeId,
-    ) -> Result<HashMap<String, Msg>, Error> {
+    ) -> Result<HashMap<String, OutputType>, Error> {
         ctx.lock()
             .unwrap()
             .db
@@ -84,7 +84,7 @@ impl DeleteKeypair {
             .await?;
 
         Ok(hashmap! {
-            "deleted_node".to_owned()=>Msg::DeletedNode(node_id)
+            "deleted_node_id".to_owned()=> OutputType::DeletedNode(node_id)
         })
     }
 }
