@@ -25,6 +25,7 @@ use self::{
 pub mod account;
 pub mod delete_keypair;
 pub mod generate_keypair;
+pub mod pubkey;
 pub mod token;
 pub mod transfer;
 
@@ -114,7 +115,7 @@ pub enum CommandResponse {
 pub enum Kind {
     GenerateKeypair(generate_keypair::GenerateKeypair),
     DeleteKeypair(delete_keypair::DeleteKeypair),
-    AddPubkey(Option<keypair::AddPubConfig>),
+    AddPubkey(pubkey::AddPubkey),
     DeletePubkey(String),
     CreateAccount(CreateAccount),
     GetBalance(String),
@@ -131,7 +132,7 @@ impl Command {
     ) -> Result<HashMap<String, Msg>, Error> {
         match self.kind {
             Kind::GenerateKeypair(k) => k.run(inputs).await,
-            Kind::DeleteKeypair(k) => k.run(inputs).await,
+            Kind::DeleteKeypair(k) => k.run(self.ctx, inputs).await,
             Kind::AddPubkey(name, pubkey) => {
                 if exec_ctx.pub_keys.contains_key(name) {
                     return Err(Box::new(CustomError::PubkeyAlreadyExists));

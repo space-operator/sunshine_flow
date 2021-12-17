@@ -224,6 +224,7 @@ enum Msg {
     Keypair(Keypair),
     String(String),
     NodeId(Uuid),
+    DeletedNode(Uuid),
 }
 
 struct Flow {

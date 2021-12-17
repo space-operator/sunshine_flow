@@ -1,10 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
 
 use either::Either;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use solana_sdk::signature::{keypair_from_seed, Keypair};
-use sunshine_core::msg::{Action, NodeId, QueryKind};
+use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, Msg};
 
@@ -18,7 +20,7 @@ pub struct DeleteKeypair {
 impl DeleteKeypair {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Ctx>,
+        ctx: Arc<Mutex<Ctx>>,
         mut inputs: HashMap<String, Msg>,
     ) -> Result<HashMap<String, Msg>, Error> {
         match &self.name {
@@ -45,12 +47,20 @@ impl DeleteKeypair {
         }
     }
 
-    async fn delete_from_name(ctx: Arc<Ctx>, name: String) -> Result<HashMap<String, Msg>, Error> {
-        let graph = ctx.db.read_graph(ctx.key_graph).await?;
+    async fn delete_from_name(
+        ctx: Arc<Mutex<Ctx>>,
+        name: String,
+    ) -> Result<HashMap<String, Msg>, Error> {
+        let graph = ctx
+            .lock()
+            .unwrap()
+            .db
+            .read_graph(ctx.lock().unwrap().key_graph)
+            .await?;
 
         for node in graph.nodes {
             for edge in node.inbound_edges {
-                let props = ctx.db.read_edge_properties(edge).await?;
+                let props = ctx.lock().unwrap().db.read_edge_properties(edge).await?;
                 match props.get(super::KEYPAIR_NAME_MARKER) {
                     Some(n) if n == name.as_str() => {
                         return Self::delete_from_node_id(ctx, node.node_id).await;
@@ -64,11 +74,17 @@ impl DeleteKeypair {
     }
 
     async fn delete_from_node_id(
-        ctx: Arc<Ctx>,
+        ctx: Arc<Mutex<Ctx>>,
         node_id: NodeId,
     ) -> Result<HashMap<String, Msg>, Error> {
-        ctx.db.delete_node(node_id, ctx.key_graph).await?;
+        ctx.lock()
+            .unwrap()
+            .db
+            .delete_node(node_id, ctx.lock().unwrap().key_graph)
+            .await?;
 
-        Ok(HashMap::new())
+        Ok(hashmap! {
+            "deleted_node".to_owned()=>Msg::DeletedNode(node_id)
+        })
     }
 }
