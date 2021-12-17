@@ -202,7 +202,7 @@ impl FlowContext {
                 }
 
                 for node in start_nodes {
-                    node.send(ValueType::default()).unwrap();
+                    node.send(ValueType::Empty).unwrap();
                 }
             }
         };
@@ -224,10 +224,10 @@ impl FlowContext {
 
 type EntryId = NodeId;
 
-#[derive(Debug)]
-enum ValueType {
+#[derive(Debug, Clone)]
+pub enum ValueType {
     Integer(i64),
-    Keypair(Arc<Keypair>),
+    Keypair(WrappedKeypair),
     String(String),
     NodeId(Uuid),
     DeletedNode(Uuid),
@@ -239,6 +239,29 @@ enum ValueType {
     Float(f64),
     Bool(bool),
     StringOpt(Option<String>),
+    Empty,
+}
+
+#[derive(Debug)]
+pub struct WrappedKeypair(pub Keypair);
+
+impl From<Keypair> for WrappedKeypair {
+    fn from(keypair: Keypair) -> Self {
+        Self(keypair)
+    }
+}
+
+impl Into<Keypair> for WrappedKeypair {
+    fn into(self) -> Keypair {
+        self.0
+    }
+}
+
+impl Clone for WrappedKeypair {
+    fn clone(&self) -> Self {
+        let keypair = Keypair::from_bytes(&self.0.to_bytes()).unwrap();
+        Self(keypair)
+    }
 }
 
 struct Flow {

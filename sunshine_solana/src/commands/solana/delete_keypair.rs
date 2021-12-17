@@ -72,7 +72,7 @@ impl DeleteKeypair {
     ) -> Result<HashMap<String, ValueType>, Error> {
         ctx.db.delete_node(node_id, ctx.key_graph).await?;
 
-        ctx.keyring.find_remove(|(name, keypair)| if keypair.)
+        // ctx.keyring.find_remove(|(name, keypair)| if keypair.)
 
         Ok(hashmap! {
             "deleted_node_id".to_owned()=> ValueType::DeletedNode(node_id)

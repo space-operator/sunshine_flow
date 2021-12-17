@@ -14,11 +14,11 @@ use super::Ctx;
 pub struct GenerateKeypair {
     pub seed_phrase: Option<String>,
     pub passphrase: Option<String>,
-    pub save: Option<Option<Name>>,
+    pub save: Option<Option<String>>,
 }
 
 impl GenerateKeypair {
-    pub(crate) async fn run(
+    pub async fn run(
         &self,
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
@@ -37,7 +37,7 @@ impl GenerateKeypair {
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
             },
         };
-        let save: Option<String> = match &self.save {
+        let save: Option<String> = match self.save.clone() {
             Some(val) => val,
             None => match inputs.remove("save") {
                 Some(ValueType::StringOpt(s)) => s,
@@ -47,14 +47,12 @@ impl GenerateKeypair {
 
         let keypair = generate_keypair(&passphrase, &seed_phrase)?;
 
-        let keypair = Arc::new(keypair);
-
         if let Some(name) = save {
-            ctx.keyring.insert_keypair(node_id, keypair.clone())?;
+            ctx.insert_keypair(name, &keypair).await?;
         }
 
         return Ok(hashmap! {
-            "keypair".to_owned() => ValueType::Keypair(keypair),
+            "keypair".to_owned() => ValueType::Keypair(keypair.into()),
         });
     }
 }
