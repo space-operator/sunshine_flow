@@ -4,7 +4,6 @@ use bip39::{Language, Mnemonic, Seed};
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::{keypair_from_seed, Keypair};
-use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, ValueType};
 

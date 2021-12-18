@@ -1,15 +1,11 @@
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
-use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
-use sunshine_core::msg::{CreateEdge, Graph, GraphId, Properties};
+use sunshine_core::msg::{Graph, GraphId, Properties};
 use sunshine_core::store::Datastore;
+use uuid::Uuid;
 
 use crate::{error::Error, ValueType};
 
@@ -17,18 +13,20 @@ use sunshine_core::msg::NodeId;
 
 mod instructions;
 
-// pub mod add_pubkey;
-// pub mod create_account;
-// pub mod create_token;
-// pub mod delete_keypair;
-// pub mod delete_pubkey;
+mod add_pubkey;
+mod create_account;
+// mod create_token;
+mod delete_keypair;
+mod delete_pubkey;
 mod generate_keypair;
 mod get_balance;
-// pub mod mint_token;
-// pub mod request_airdrop;
-// pub mod transfer;
+// mod mint_token;
+mod request_airdrop;
+mod transfer;
 
-const KEYPAIR_NAME_MARKER: &str = "KEYPAIR_NAME_MARKER";
+const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
+const NAME_MARKER: &str = "NAME_MARKER";
+const PUBKEY_MARKER: &str = "PUBKEY_MARKER";
 
 struct Config {
     url: String,
@@ -41,10 +39,6 @@ pub struct Ctx {
     db: Arc<dyn Datastore>,
     wallet_graph: GraphId,
 }
-
-const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
-const NAME_MARKER: &str = "NAME_MARKER";
-const PUBKEY_MARKER: &str = "PUBKEY_MARKER";
 
 impl Ctx {
     fn new(cfg: Config) -> Result<Ctx, Error> {
@@ -78,8 +72,8 @@ impl Ctx {
 
         let mut props = Properties::default();
 
-        props.insert(KEYPAIR_MARKER.to_owned(), keypair.to_base58_string().into());
         props.insert(NAME_MARKER.to_owned(), name.into());
+        props.insert(KEYPAIR_MARKER.to_owned(), keypair.to_base58_string().into());
 
         let (_, node_id) = self.db.create_node((self.wallet_graph, props)).await?;
 
@@ -87,14 +81,14 @@ impl Ctx {
     }
 
     async fn remove_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
-        let keypair = self.get_keypair(node_id).await?;
+        let keypair = self.get_keypair_by_id(node_id).await?;
 
         self.db.delete_node(node_id, self.wallet_graph).await?;
 
         Ok(keypair)
     }
 
-    async fn get_keypair(&self, node_id: NodeId) -> Result<Keypair, Error> {
+    async fn get_keypair_by_id(&self, node_id: NodeId) -> Result<Keypair, Error> {
         let node = self.db.read_node(node_id).await?;
 
         let keypair = node
@@ -109,6 +103,24 @@ impl Ctx {
         Ok(keypair)
     }
 
+    async fn get_node_id_by_keypair(&self, input_keypair: &str) -> Result<NodeId, Error> {
+        let graph = self.db.read_graph(self.wallet_graph).await?;
+
+        let node_id = *graph
+            .nodes
+            .iter()
+            .filter(|&node| {
+                let keypair = node.properties.get(KEYPAIR_MARKER).unwrap();
+                keypair == input_keypair
+            })
+            .map(|node| node.node_id)
+            .collect::<Vec<NodeId>>()
+            .first()
+            .unwrap();
+
+        Ok(node_id)
+    }
+
     async fn insert_pubkey(&self, name: String, pubkey: Pubkey) -> Result<NodeId, Error> {
         let graph = self.db.read_graph(self.wallet_graph).await?;
 
@@ -116,8 +128,8 @@ impl Ctx {
 
         let mut props = Properties::default();
 
-        props.insert(PUBKEY_MARKER.to_owned(), pubkey.to_string().into());
         props.insert(NAME_MARKER.to_owned(), name.into());
+        props.insert(PUBKEY_MARKER.to_owned(), pubkey.to_string().into());
 
         let (_, node_id) = self.db.create_node((self.wallet_graph, props)).await?;
 
@@ -133,7 +145,7 @@ impl Ctx {
     }
 
     async fn get_pubkey(&self, node_id: NodeId) -> Result<Pubkey, Error> {
-        match self.get_keypair(node_id).await {
+        match self.get_keypair_by_id(node_id).await {
             Ok(keypair) => return Ok(keypair.pubkey()),
             Err(Error::KeypairDoesntExist) => (),
             Err(e) => return Err(e),
@@ -170,15 +182,15 @@ pub enum CommandResponse {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Kind {
     GenerateKeypair(generate_keypair::GenerateKeypair),
-    // DeleteKeypair(delete_keypair::DeleteKeypair),
-    // AddPubkey(add_pubkey::AddPubkey),
-    // DeletePubkey(delete_pubkey::DeletePubkey),
-    // CreateAccount(create_account::CreateAccount),
+    DeleteKeypair(delete_keypair::DeleteKeypair),
+    AddPubkey(add_pubkey::AddPubkey),
+    DeletePubkey(delete_pubkey::DeletePubkey),
+    CreateAccount(create_account::CreateAccount),
     GetBalance(get_balance::GetBalance),
     // CreateToken(create_token::CreateToken),
-    // RequestAirdrop(request_airdrop::RequestAirdrop),
+    RequestAirdrop(request_airdrop::RequestAirdrop),
     // MintToken(mint_token::MintToken),
-    // Transfer(transfer::Transfer),
+    Transfer(transfer::Transfer),
 }
 
 impl Command {
@@ -188,15 +200,15 @@ impl Command {
     ) -> Result<HashMap<String, ValueType>, Error> {
         match &self.kind {
             Kind::GenerateKeypair(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::DeleteKeypair(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::AddPubkey(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::DeletePubkey(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::CreateAccount(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::DeleteKeypair(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::AddPubkey(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::DeletePubkey(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::CreateAccount(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::GetBalance(k) => k.run(self.ctx.clone(), inputs).await,
             // Kind::CreateToken(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
             // Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
-            // Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
         }
     }
 }

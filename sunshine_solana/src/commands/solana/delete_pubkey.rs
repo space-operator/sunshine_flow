@@ -39,13 +39,13 @@ impl DeletePubkey {
             },
         };
 
-        if ctx.pub_keys.contains_key(&name) {
-            ctx..pub_keys.remove(&name);
-            Ok(hashmap! {
-                 "pubkey".to_owned() => ValueType::Pubkey(pubkey),
-            })
-        } else {
-            return Err(Error::PubkeyDoesntExist);
-        }
+        // if ctx.pub_keys.contains_key(&name) {
+        //     ctx.pub_keys.remove(&name);
+        //     Ok(hashmap! {
+        //          "pubkey".to_owned() => ValueType::Pubkey(pubkey),
+        //     })
+        // } else {
+        //     return Err(Error::PubkeyDoesntExist);
+        // }
     }
 }

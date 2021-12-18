@@ -68,9 +68,9 @@ impl CreateToken {
             },
         };
 
-        let fee_payer = ctx.get_keypair(&fee_payer)?;
-        let authority = ctx.get_keypair(&authority)?;
-        let token = ctx.get_keypair(&token)?;
+        let fee_payer = ctx.get_keypair_by_id(&fee_payer)?;
+        let authority = ctx.get_keypair_by_id(&authority)?;
+        let token = ctx.get_keypair_by_id(&token)?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
             &ctx.client,

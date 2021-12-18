@@ -66,10 +66,10 @@ impl MintToken {
             },
         };
 
-        let token = ctx.lock().unwrap().get_keypair(&token)?;
-        let mint_authority = ctx.lock().unwrap().get_keypair(&mint_authority)?;
+        let token = ctx.lock().unwrap().get_keypair_by_id(&token)?;
+        let mint_authority = ctx.lock().unwrap().get_keypair_by_id(&mint_authority)?;
         let recipient = ctx.lock().unwrap().get_pubkey(&recipient)?;
-        let fee_payer = ctx.lock().unwrap().get_keypair(&fee_payer)?;
+        let fee_payer = ctx.lock().unwrap().get_keypair_by_id(&fee_payer)?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
             &ctx.lock().unwrap().client,
