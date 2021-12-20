@@ -50,9 +50,9 @@ impl GenerateKeypair {
             ctx.insert_keypair(name, &keypair).await?;
         }
 
-        return Ok(hashmap! {
+        Ok(hashmap! {
             "keypair".to_owned() => ValueType::Keypair(keypair.into()),
-        });
+        })
     }
 }
 

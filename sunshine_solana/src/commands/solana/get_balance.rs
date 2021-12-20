@@ -1,11 +1,7 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, ValueType};
@@ -31,7 +27,7 @@ impl GetBalance {
             },
         };
 
-        let pubkey = ctx.get_pubkey(node_id).await?;
+        let pubkey = ctx.get_pubkey_by_id(node_id).await?;
 
         let balance = ctx.client.get_balance(&pubkey)?;
 

@@ -3286,6 +3286,7 @@ dependencies = [
  "serde_json",
  "sunshine_core",
  "sunshine_indra",
+ "sunshine_solana",
  "tokio",
 ]
 

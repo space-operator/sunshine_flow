@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
@@ -21,7 +17,7 @@ pub struct AddPubkey {
 impl AddPubkey {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
+        ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
         let name = match &self.name {
@@ -33,23 +29,17 @@ impl AddPubkey {
         };
 
         let pubkey = match &self.pubkey {
-            Some(s) => s.clone(),
+            Some(p) => *p,
             None => match inputs.remove("pubkey") {
-                Some(ValueType::Pubkey(s)) => s,
+                Some(ValueType::Pubkey(p)) => p,
                 _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };
 
-        if ctx.lock().unwrap().pub_keys.contains_key(&name) {
-            return Err(Error::PubkeyAlreadyExists);
-        } else {
-            ctx.lock().unwrap().pub_keys.insert(name.clone(), pubkey);
-        }
-
-        // let pubkey = Pubkey::from_str(self.pubkey)?;
+        ctx.insert_pubkey(name, pubkey).await?;
 
         Ok(hashmap! {
-            "pubkey".to_owned()=>ValueType::Pubkey(pubkey),
+            "pubkey".to_owned()=> ValueType::Pubkey(pubkey),
         })
     }
 }

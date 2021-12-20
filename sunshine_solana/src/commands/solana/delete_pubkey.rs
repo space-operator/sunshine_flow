@@ -1,11 +1,10 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use either::Either;
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
+use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, ValueType};
 
@@ -13,8 +12,7 @@ use super::Ctx;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DeletePubkey {
-    pub name: Option<String>,
-    pub pubkey: Option<Pubkey>,
+    pub input: Either<Option<String>, Option<NodeId>>,
 }
 
 impl DeletePubkey {
@@ -23,29 +21,38 @@ impl DeletePubkey {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
-        let name = match &self.name {
-            Some(s) => s.clone(),
-            None => match inputs.remove("name") {
-                Some(ValueType::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("name".to_string())),
-            },
-        };
+        match &self.input {
+            Either::Left(pubkey) => {
+                let pubkey = match pubkey {
+                    Some(s) => s.clone(),
+                    None => match inputs.remove("pubkey") {
+                        Some(ValueType::String(s)) => s,
+                        _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
+                    },
+                };
+                let pubkey = Pubkey::from_str(&pubkey).unwrap();
 
-        let pubkey = match &self.pubkey {
-            Some(s) => s.clone(),
-            None => match inputs.remove("pubkey") {
-                Some(ValueType::Pubkey(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
-            },
-        };
+                let node_id = ctx.get_node_id_by_pubkey(pubkey).await?;
+                let pubkey = ctx.remove_pubkey(node_id).await?;
 
-        // if ctx.pub_keys.contains_key(&name) {
-        //     ctx.pub_keys.remove(&name);
-        //     Ok(hashmap! {
-        //          "pubkey".to_owned() => ValueType::Pubkey(pubkey),
-        //     })
-        // } else {
-        //     return Err(Error::PubkeyDoesntExist);
-        // }
+                Ok(hashmap! {
+                    "removed_pubkey".to_owned()=> ValueType::Pubkey(pubkey)
+                })
+            }
+            Either::Right(node_id) => {
+                let node_id = match node_id {
+                    Some(id) => *id,
+                    None => match inputs.remove("node_id") {
+                        Some(ValueType::NodeId(id)) => id,
+                        _ => return Err(Error::ArgumentNotFound("node_id".to_string())),
+                    },
+                };
+                let pubkey = ctx.remove_pubkey(node_id).await?;
+
+                Ok(hashmap! {
+                    "removed_pubkey".to_owned()=> ValueType::Pubkey(pubkey)
+                })
+            }
+        }
     }
 }

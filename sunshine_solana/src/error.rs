@@ -1,4 +1,5 @@
 use solana_client::client_error::ClientError as SolanaClientError;
+use solana_sdk::program_error::ProgramError as SolanaProgramError;
 use solana_sdk::signer::SignerError as SolanaSignerError;
 use thiserror::Error as ThisError;
 
@@ -27,9 +28,25 @@ pub enum Error {
     #[error("failed to parse public key from string: {0}")]
     ParsePubKey(solana_sdk::pubkey::ParsePubkeyError),
     #[error("solana client error: {0}")]
-    SolanaClientError(SolanaClientError),
+    SolanaClient(SolanaClientError),
     #[error("solana signer error: {0}")]
-    SolanaSignerError(SolanaSignerError),
+    SolanaSigner(SolanaSignerError),
+    #[error("solana error: recipient address not funded")]
+    RecipientAddressNotFunded,
+    #[error("solana error: unsupported recipient address: {0}")]
+    UnsupportedRecipientAddress(String),
+    #[error("solana error: associated token account doesn't exist")]
+    AssociatedTokenAccountDoesntExist,
+    #[error("solana program error: {0}")]
+    SolanaProgram(SolanaProgramError),
+    #[error("no context for command")]
+    NoContextForCommand,
+}
+
+impl From<SolanaProgramError> for Error {
+    fn from(err: SolanaProgramError) -> Error {
+        Error::SolanaProgram(err)
+    }
 }
 
 impl From<sunshine_core::Error> for Error {
@@ -40,12 +57,12 @@ impl From<sunshine_core::Error> for Error {
 
 impl From<SolanaClientError> for Error {
     fn from(err: SolanaClientError) -> Error {
-        Error::SolanaClientError(err)
+        Error::SolanaClient(err)
     }
 }
 
 impl From<SolanaSignerError> for Error {
     fn from(err: SolanaSignerError) -> Error {
-        Error::SolanaSignerError(err)
+        Error::SolanaSigner(err)
     }
 }

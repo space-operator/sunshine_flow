@@ -1,75 +1,153 @@
-use std::collections::HashMap;
-
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_program};
 use spl_token::instruction::transfer_checked;
+use std::{collections::HashMap, sync::Arc};
+use sunshine_core::msg::NodeId;
 
-use crate::CommandResult;
+use crate::{error::Error, CommandResult, ValueType};
 
-use super::{instructions::execute, mint_token::resolve_mint_info};
+use super::instructions::execute;
+use super::mint_token::resolve_mint_info;
+use super::Ctx;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Transfer {
-    pub fee_payer: String,
-    pub token: String,
-    pub amount: f64,
-    pub recipient: String,
-    pub sender: Option<String>,
-    pub sender_owner: String,
-    pub allow_unfunded_recipient: bool,
-    pub fund_recipient: bool,
-    pub memo: Option<String>,
+    pub fee_payer: Option<NodeId>,
+    pub token: Option<NodeId>,
+    pub amount: Option<f64>,
+    pub recipient: Option<NodeId>,
+    pub sender: Option<Option<NodeId>>,
+    pub sender_owner: Option<NodeId>,
+    pub allow_unfunded_recipient: Option<bool>,
+    pub fund_recipient: Option<bool>,
+    pub memo: Option<Option<String>>,
 }
 
 impl Transfer {
     pub(crate) async fn run(
         &self,
+        ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
-        let name = match &self.name {
-            Some(s) => s.clone(),
-            None => match inputs.remove("name") {
-                Some(ValueType::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("name".to_string())),
+        let fee_payer = match self.fee_payer {
+            Some(s) => s,
+            None => match inputs.remove("fee_payer") {
+                Some(ValueType::NodeId(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
-        let token = ctx.get_pubkey(&transfer.token)?;
-        let recipient = ctx.get_pubkey(&transfer.recipient)?;
-        let fee_payer = ctx.get_keypair(&transfer.fee_payer)?;
-        let sender = match transfer.sender {
-            Some(ref sender) => Some(ctx.get_keypair(sender)?),
+        let token = match self.token {
+            Some(s) => s,
+            None => match inputs.remove("token") {
+                Some(ValueType::NodeId(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+            },
+        };
+
+        let amount = match self.amount {
+            Some(s) => s,
+            None => match inputs.remove("amount") {
+                Some(ValueType::F64(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("amount".to_string())),
+            },
+        };
+
+        let recipient = match self.recipient {
+            Some(s) => s,
+            None => match inputs.remove("recipient") {
+                Some(ValueType::NodeId(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
+            },
+        };
+
+        let sender = match self.sender {
+            Some(s) => s,
+            None => match inputs.remove("sender") {
+                Some(ValueType::NodeIdOpt(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("sender".to_string())),
+            },
+        };
+
+        let sender_owner = match self.sender_owner {
+            Some(s) => s,
+            None => match inputs.remove("sender_owner") {
+                Some(ValueType::NodeId(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("sender_owner".to_string())),
+            },
+        };
+
+        let allow_unfunded_recipient = match self.allow_unfunded_recipient {
+            Some(s) => s,
+            None => match inputs.remove("allow_unfunded_recipient") {
+                Some(ValueType::Bool(s)) => s,
+                _ => {
+                    return Err(Error::ArgumentNotFound(
+                        "allow_unfunded_recipient".to_string(),
+                    ))
+                }
+            },
+        };
+
+        let fund_recipient = match self.fund_recipient {
+            Some(s) => s,
+            None => match inputs.remove("fund_recipient") {
+                Some(ValueType::Bool(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("fund_recipient".to_string())),
+            },
+        };
+
+        let memo: Option<String> = match self.memo.clone() {
+            Some(val) => val,
+            None => match inputs.remove("memo") {
+                Some(ValueType::StringOpt(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("memo".to_string())),
+            },
+        };
+
+        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
+        let token = ctx.get_pubkey_by_id(token).await?;
+        let recipient = ctx.get_pubkey_by_id(recipient).await?;
+        let sender = match sender {
+            Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
             None => None,
         };
-        let sender_owner = ctx.get_keypair(&transfer.sender_owner)?;
+        let sender_owner = ctx.get_keypair_by_id(sender_owner).await?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
             &ctx.client,
             &fee_payer.pubkey(),
             token,
-            transfer.amount,
+            amount,
             recipient,
             sender.as_ref().map(|s| s.pubkey()),
             sender_owner.pubkey(),
-            transfer.allow_unfunded_recipient,
-            transfer.fund_recipient,
-            transfer.memo.clone(),
+            allow_unfunded_recipient,
+            fund_recipient,
+            memo,
         )?;
 
-        let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone(), sender_owner.clone()];
+        let fee_payer_pubkey = fee_payer.pubkey();
 
-        if let Some(sender) = sender {
+        let mut signers: Vec<&dyn Signer> = vec![&fee_payer, &sender_owner];
+
+        if let Some(sender) = sender.as_ref() {
             signers.push(sender);
         }
 
         let signature = execute(
             &signers,
             &ctx.client,
-            &fee_payer.pubkey(),
+            &fee_payer_pubkey,
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;
+
+        Ok(hashmap! {
+             "signature".to_owned() => ValueType::Success(signature),
+        })
     }
 }
 
@@ -142,10 +220,7 @@ pub fn command_transfer(
             });
 
         if recipient_account_info.is_none() && !allow_unfunded_recipient {
-            return Err("Error: The recipient address is not funded. \
-                                    Add `--allow-unfunded-recipient` to complete the transfer \
-                                   "
-            .into());
+            return Err(Error::RecipientAddressNotFunded);
         }
 
         recipient_account_info.unwrap_or(false)
@@ -165,9 +240,7 @@ pub fn command_transfer(
                 } else if recipient_token_account_data.owner == spl_token::id() {
                     false
                 } else {
-                    return Err(
-                        format!("Error: Unsupported recipient address: {}", recipient).into(),
-                    );
+                    return Err(Error::UnsupportedRecipientAddress(recipient.to_string()));
                 }
             } else {
                 true
@@ -184,11 +257,7 @@ pub fn command_transfer(
                     ),
                 );
             } else {
-                return Err(
-                    "Error: Recipient's associated token account does not exist. \
-                                    Add `--fund-recipient` to fund their account"
-                        .into(),
-                );
+                return Err(Error::AssociatedTokenAccountDoesntExist);
             }
         }
     }

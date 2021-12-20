@@ -1,14 +1,11 @@
-use std::{
-    collections::HashMap,
-    str::FromStr,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
 use spl_token::instruction::mint_to_checked;
+use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, CommandResult, ValueType};
 
@@ -16,76 +13,80 @@ use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MintToken {
-    pub token: Option<String>,
-    pub recipient: Option<String>,
-    pub mint_authority: Option<String>,
+    pub token: Option<NodeId>,
+    pub recipient: Option<NodeId>,
+    pub mint_authority: Option<NodeId>,
     pub amount: Option<f64>,
-    pub fee_payer: Option<String>,
+    pub fee_payer: Option<NodeId>,
 }
 
 impl MintToken {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
+        ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
-        let token = match &self.token {
-            Some(s) => s.clone(),
+        let token = match self.token {
+            Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
 
-        let recipient = match &self.recipient {
-            Some(s) => s.clone(),
+        let recipient = match self.recipient {
+            Some(s) => s,
             None => match inputs.remove("recipient") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
             },
         };
-        let mint_authority = match &self.mint_authority {
-            Some(s) => s.clone(),
+
+        let mint_authority = match self.mint_authority {
+            Some(s) => s,
             None => match inputs.remove("mint_authority") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("mint_authority".to_string())),
             },
         };
-        let amount = match &self.amount {
-            Some(s) => s.clone(),
+
+        let amount = match self.amount {
+            Some(s) => s,
             None => match inputs.remove("amount") {
-                Some(ValueType::Float(s)) => s,
+                Some(ValueType::F64(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("amount".to_string())),
             },
         };
-        let fee_payer = match &self.fee_payer {
-            Some(s) => s.clone(),
+
+        let fee_payer = match self.fee_payer {
+            Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
-        let token = ctx.lock().unwrap().get_keypair_by_id(&token)?;
-        let mint_authority = ctx.lock().unwrap().get_keypair_by_id(&mint_authority)?;
-        let recipient = ctx.lock().unwrap().get_pubkey(&recipient)?;
-        let fee_payer = ctx.lock().unwrap().get_keypair_by_id(&fee_payer)?;
+        let token = ctx.get_keypair_by_id(token).await?;
+        let mint_authority = ctx.get_keypair_by_id(mint_authority).await?;
+        let recipient = ctx.get_pubkey_by_id(recipient).await?;
+        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
-            &ctx.lock().unwrap().client,
+            &ctx.client,
             token.pubkey(),
             amount,
             recipient,
             mint_authority.pubkey(),
         )?;
 
-        let signers: Vec<Arc<dyn Signer>> =
-            vec![mint_authority.clone(), token.clone(), fee_payer.clone()];
+        let fee_payer_pubkey = fee_payer.pubkey();
+
+        let signers: Vec<&dyn Signer> = vec![&mint_authority, &token, &fee_payer];
 
         let signature = execute(
             &signers,
-            &ctx.lock().unwrap().client,
-            &fee_payer.pubkey(),
+            &ctx.client,
+            &fee_payer_pubkey,
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;

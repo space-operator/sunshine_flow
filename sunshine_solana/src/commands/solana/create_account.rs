@@ -1,7 +1,4 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
@@ -9,6 +6,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{
     program_pack::Pack, pubkey::Pubkey, signer::Signer, system_instruction, system_program,
 };
+use sunshine_core::msg::NodeId;
 
 use crate::CommandResult;
 
@@ -18,54 +16,55 @@ use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateAccount {
-    pub owner: Option<String>,
-    pub fee_payer: Option<String>,
-    pub token: Option<String>,
-    pub account: Option<String>,
+    pub owner: Option<NodeId>,
+    pub fee_payer: Option<NodeId>,
+    pub token: Option<NodeId>,
+    pub account: Option<Option<NodeId>>,
 }
 
 impl CreateAccount {
     pub(crate) async fn run(
         &self,
-        ctx: Arc<Mutex<Ctx>>,
+        ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
-        let owner = match &self.owner {
-            Some(s) => s.clone(),
+        let owner = match self.owner {
+            Some(s) => s,
             None => match inputs.remove("owner") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("owner".to_string())),
             },
         };
 
-        let fee_payer = match &self.fee_payer {
-            Some(s) => s.clone(),
+        let fee_payer = match self.owner {
+            Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
-        let token = match &self.token {
-            Some(s) => s.clone(),
+        let token = match self.owner {
+            Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
-        let account = match &self.account {
-            Some(s) => s.clone(),
+
+        let account = match self.account {
+            Some(s) => s,
             None => match inputs.remove("account") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeIdOpt(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("account".to_string())),
             },
         };
 
-        let owner = ctx.get_pubkey(&owner)?;
-        let fee_payer = ctx.get_keypair(&fee_payer)?;
-        let token = ctx.get_pubkey(&token)?;
-        let account = match self.account {
-            Some(ref account) => Some(ctx.get_keypair(account)?),
+        let owner = ctx.get_pubkey_by_id(owner).await?;
+        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
+        let token = ctx.get_pubkey_by_id(token).await?;
+        let account = match account {
+            Some(account) => Some(ctx.get_keypair_by_id(account).await?),
             None => None,
         };
 
@@ -74,20 +73,22 @@ impl CreateAccount {
             fee_payer.pubkey(),
             token,
             owner,
-            account.as_ref().map(|a| a.pubkey()),
+            account.as_ref().map(|acc| acc.pubkey()),
         )
         .unwrap();
 
-        let mut signers: Vec<Arc<dyn Signer>> = vec![fee_payer.clone()];
+        let fee_payer_pubkey = fee_payer.pubkey();
 
-        if let Some(account) = account {
-            signers.push(account.clone());
+        let mut signers: Vec<&dyn Signer> = vec![&fee_payer];
+
+        if let Some(account) = account.as_ref() {
+            signers.push(account);
         };
 
         let signature = execute(
             &signers,
             &ctx.client,
-            &fee_payer.pubkey(),
+            &fee_payer_pubkey,
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;

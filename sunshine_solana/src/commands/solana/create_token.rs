@@ -1,13 +1,11 @@
-use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-};
+use std::{collections::HashMap, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_instruction};
 use spl_token::state::Mint;
+use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, CommandResult, ValueType};
 
@@ -15,10 +13,10 @@ use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateToken {
-    pub fee_payer: Option<String>,
+    pub fee_payer: Option<NodeId>,
     pub decimals: Option<u8>,
-    pub authority: Option<String>,
-    pub token: Option<String>,
+    pub authority: Option<NodeId>,
+    pub token: Option<NodeId>,
     pub memo: Option<String>,
 }
 
@@ -28,34 +26,34 @@ impl CreateToken {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, ValueType>,
     ) -> Result<HashMap<String, ValueType>, Error> {
-        let fee_payer = match &self.fee_payer {
-            Some(s) => s.clone(),
+        let fee_payer = match self.fee_payer {
+            Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
-        let decimals = match &self.decimals {
-            Some(s) => s.clone(),
+        let decimals = match self.decimals {
+            Some(s) => s,
             None => match inputs.remove("decimals") {
                 Some(ValueType::U8(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("decimals".to_string())),
             },
         };
 
-        let authority = match &self.authority {
-            Some(s) => s.clone(),
+        let authority = match self.authority {
+            Some(s) => s,
             None => match inputs.remove("authority") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("authority".to_string())),
             },
         };
 
-        let token = match &self.token {
-            Some(s) => s.clone(),
+        let token = match self.token {
+            Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::String(s)) => s,
+                Some(ValueType::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -68,9 +66,9 @@ impl CreateToken {
             },
         };
 
-        let fee_payer = ctx.get_keypair_by_id(&fee_payer)?;
-        let authority = ctx.get_keypair_by_id(&authority)?;
-        let token = ctx.get_keypair_by_id(&token)?;
+        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
+        let authority = ctx.get_keypair_by_id(authority).await?;
+        let token = ctx.get_keypair_by_id(token).await?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
             &ctx.client,
@@ -81,13 +79,14 @@ impl CreateToken {
             &memo,
         )?;
 
-        let signers: Vec<Arc<dyn Signer>> =
-            vec![authority.clone(), fee_payer.clone(), token.clone()];
+        let fee_payer_pubkey = fee_payer.pubkey();
+
+        let signers: Vec<&dyn Signer> = vec![&authority, &fee_payer, &token];
 
         let signature = execute(
             &signers,
             &ctx.client,
-            &fee_payer.pubkey(),
+            &fee_payer_pubkey,
             &instructions,
             minimum_balance_for_rent_exemption,
         )?;

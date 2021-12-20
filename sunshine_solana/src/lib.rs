@@ -1,36 +1,18 @@
 use solana_sdk::signature::Signature;
-use std::str::FromStr;
 use std::sync::Arc;
-use thiserror::Error as ThisError;
 
-use commands::{simple, Command};
+use commands::Command;
 use dashmap::DashMap;
-use futures::future::{BoxFuture, FutureExt};
-use futures::stream::{Stream, StreamExt, TryStreamExt};
-use maplit::hashmap;
-use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
-use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
-use solana_sdk::message::Message;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
-use solana_sdk::signer::Signer;
-use solana_sdk::transaction::Transaction;
 use std::collections::HashMap;
-use sunshine_core::msg::CreateEdge;
-use sunshine_core::msg::MutateKind;
 use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
 use sunshine_core::store::Datastore;
-use sunshine_indra::store::DbConfig;
-use sunshine_indra::store::DB;
 
 use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as Sender};
 use tokio::sync::oneshot;
-use tokio::time::sleep;
 
-use serde_json::Value;
-use tokio::task::spawn_blocking;
 use tokio::time::Duration;
 use uuid::Uuid;
 
@@ -39,7 +21,6 @@ mod error;
 use error::Error;
 
 type FlowId = GraphId;
-type CommandId = NodeId;
 
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;
 
@@ -47,26 +28,23 @@ const START_NODE_MARKER: &str = "START_NODE_MARKER";
 const COMMAND_MARKER: &str = "COMMAND_MARKER";
 const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
 const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
+const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
+const CTX_MARKER: &str = "CTX_MARKER";
 
-#[derive(Debug)]
-struct Config {
-    url: String,
-}
-
-struct FlowContext {
+pub struct FlowContext {
     deployed: DashMap<FlowId, oneshot::Sender<()>>,
     db: Arc<dyn Datastore>,
 }
 
 impl FlowContext {
-    fn new(cfg: Config, db: Arc<dyn Datastore>) -> FlowContext {
+    pub fn new(db: Arc<dyn Datastore>) -> FlowContext {
         FlowContext {
             deployed: DashMap::new(),
             db,
         }
     }
 
-    fn undeploy_flow(&self, flow_id: FlowId) -> Result<(), Error> {
+    pub fn undeploy_flow(&self, flow_id: FlowId) -> Result<(), Error> {
         let (_, stop_signal) = self
             .deployed
             .remove(&flow_id)
@@ -75,8 +53,6 @@ impl FlowContext {
         Ok(())
     }
 
-    // TODO not taking mutable reference
-
     async fn read_flow(db: Arc<dyn Datastore>, flow_id: FlowId) -> Result<Flow, Error> {
         let graph = db
             .execute(Action::Query(QueryKind::ReadGraph(flow_id)))
@@ -84,30 +60,56 @@ impl FlowContext {
             .into_graph()
             .unwrap();
 
-        let nodes = futures::stream::iter(graph.nodes.iter());
+        let mut contexts = HashMap::new();
 
-        let mut nodes = {
-            let nodes: Result<HashMap<_, _>, Error> = nodes
-                .then(|node| async move {
-                    let cmd: Command = serde_json::from_value(
-                        node.properties.get(COMMAND_MARKER).unwrap().clone(),
-                    )
-                    .unwrap();
+        for node in graph.nodes.iter() {
+            if let Some(cfg) = node.properties.get(CTX_MARKER) {
+                let cfg: commands::solana::Config = serde_json::from_value(cfg.clone()).unwrap();
 
-                    Ok((
-                        node.node_id,
-                        FlowNode {
-                            inputs: HashMap::new(),
-                            outputs: HashMap::new(),
-                            cmd,
-                        },
-                    ))
-                })
-                .try_collect()
-                .await;
+                let ctx = Arc::new(commands::solana::Ctx::new(cfg, db.clone())?);
 
-            nodes?
-        };
+                contexts.insert(node.node_id, ctx);
+            }
+        }
+
+        let mut nodes = HashMap::new();
+
+        for node in graph.nodes.iter() {
+            let cfg = match node.properties.get(COMMAND_MARKER) {
+                Some(cfg) => cfg.clone(),
+                None => continue,
+            };
+
+            let cfg: commands::Config = serde_json::from_value(cfg).unwrap();
+
+            let cmd = match cfg {
+                commands::Config::Simple(simple) => Command::Simple(simple),
+                commands::Config::Solana(kind) => {
+                    let mut ctx = None;
+                    for edge in node.inbound_edges.iter() {
+                        let props = db.read_edge_properties(*edge).await?;
+                        if props.get(CTX_EDGE_MARKER).is_some() {
+                            ctx = Some(contexts.get(&edge.from).unwrap().clone());
+
+                            break;
+                        }
+                    }
+
+                    let ctx = ctx.ok_or(Error::NoContextForCommand)?;
+
+                    Command::Solana(commands::solana::Command { ctx, kind })
+                }
+            };
+
+            nodes.insert(
+                node.node_id,
+                FlowNode {
+                    inputs: HashMap::new(),
+                    outputs: HashMap::new(),
+                    cmd,
+                },
+            );
+        }
 
         let mut start_nodes = Vec::new();
 
@@ -165,13 +167,14 @@ impl FlowContext {
         Ok(Flow { start_nodes, nodes })
     }
 
-    async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
+    pub async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
         let mut interval = tokio::time::interval(period);
 
         let db = self.db.clone();
 
         let interval_fut = async move {
-            while let _ = interval.tick().await {
+            loop {
+                interval.tick().await;
                 println!("tick");
 
                 let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
@@ -222,8 +225,6 @@ impl FlowContext {
     }
 }
 
-type EntryId = NodeId;
-
 #[derive(Debug, Clone)]
 pub enum ValueType {
     Integer(i64),
@@ -236,10 +237,11 @@ pub enum ValueType {
     Balance(u64),
     U8(u8),
     U64(u64),
-    Float(f64),
+    F64(f64),
     Bool(bool),
     StringOpt(Option<String>),
     Empty,
+    NodeIdOpt(Option<NodeId>),
 }
 
 #[derive(Debug)]
@@ -251,9 +253,9 @@ impl From<Keypair> for WrappedKeypair {
     }
 }
 
-impl Into<Keypair> for WrappedKeypair {
-    fn into(self) -> Keypair {
-        self.0
+impl From<WrappedKeypair> for Keypair {
+    fn from(wk: WrappedKeypair) -> Keypair {
+        wk.0
     }
 }
 
@@ -264,7 +266,7 @@ impl Clone for WrappedKeypair {
     }
 }
 
-struct Flow {
+pub struct Flow {
     start_nodes: Vec<Sender<ValueType>>,
     nodes: HashMap<NodeId, FlowNode>,
 }
@@ -279,17 +281,8 @@ async fn run_command(
     cmd: &Command,
     inputs: HashMap<String, ValueType>,
 ) -> Result<HashMap<String, ValueType>, Error> {
-    println!("{:#?}", cmd);
-
-    println!("{:#?}", inputs);
-
     match cmd {
         Command::Simple(simple) => simple.run(inputs).await,
-
-        _ => unreachable!(),
+        Command::Solana(solana) => solana.run(inputs).await,
     }
 }
-
-// flow api
-
-// gui app

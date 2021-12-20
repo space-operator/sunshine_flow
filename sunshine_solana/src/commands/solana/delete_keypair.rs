@@ -53,38 +53,4 @@ impl DeleteKeypair {
             }
         }
     }
-
-    // async fn delete_from_name(
-    //     ctx: Arc<Ctx>,
-    //     name: String,
-    // ) -> Result<HashMap<String, ValueType>, Error> {
-    //     let graph = ctx.db.read_graph(ctx.key_graph).await?;
-
-    //     for node in graph.nodes {
-    //         for edge in node.inbound_edges {
-    //             let props = ctx.db.read_edge_properties(edge).await?;
-    //             match props.get(super::KEYPAIR_NAME_MARKER) {
-    //                 Some(n) if n == name.as_str() => {
-    //                     return Self::delete_from_node_id(ctx, node.node_id).await;
-    //                 }
-    //                 _ => (),
-    //             }
-    //         }
-    //     }
-
-    //     return Err(Error::KeypairDoesntExist);
-    // }
-
-    // async fn delete_from_node_id(
-    //     ctx: Arc<Ctx>,
-    //     node_id: NodeId,
-    // ) -> Result<HashMap<String, ValueType>, Error> {
-    //     ctx.db.delete_node(node_id, ctx.key_graph).await?;
-
-    //     // ctx.keyring.find_remove(|(name, keypair)| if keypair.)
-
-    //     Ok(hashmap! {
-    //         "deleted_node_id".to_owned()=> ValueType::DeletedNode(node_id)
-    //     })
-    // }
 }

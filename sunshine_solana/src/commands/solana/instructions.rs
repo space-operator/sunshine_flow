@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::message::Message;
@@ -10,8 +8,9 @@ use solana_sdk::transaction::Transaction;
 
 use crate::error::Error;
 
+#[allow(clippy::ptr_arg)]
 pub(crate) fn execute(
-    signers: &[Arc<dyn Signer>],
+    signers: &Vec<&dyn Signer>,
     client: &RpcClient,
     fee_payer: &Pubkey,
     instructions: &[Instruction],
@@ -40,12 +39,7 @@ pub(crate) fn execute(
 
     let mut transaction = Transaction::new_unsigned(message);
 
-    let signers = signers
-        .iter()
-        .map(|s| s.as_ref())
-        .collect::<Vec<&dyn Signer>>();
-
-    transaction.try_sign(&signers, recent_blockhash)?;
+    transaction.try_sign(signers, recent_blockhash)?;
 
     let signature = client.send_and_confirm_transaction(&transaction)?;
 
