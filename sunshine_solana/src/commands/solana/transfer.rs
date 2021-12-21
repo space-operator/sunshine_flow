@@ -6,7 +6,7 @@ use spl_token::instruction::transfer_checked;
 use std::{collections::HashMap, sync::Arc};
 use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, CommandResult, ValueType};
+use crate::{error::Error, CommandResult, Value};
 
 use super::instructions::execute;
 use super::mint_token::resolve_mint_info;
@@ -29,12 +29,12 @@ impl Transfer {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
-        mut inputs: HashMap<String, ValueType>,
-    ) -> Result<HashMap<String, ValueType>, Error> {
+        mut inputs: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>, Error> {
         let fee_payer = match self.fee_payer {
             Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -42,7 +42,7 @@ impl Transfer {
         let token = match self.token {
             Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -50,7 +50,7 @@ impl Transfer {
         let amount = match self.amount {
             Some(s) => s,
             None => match inputs.remove("amount") {
-                Some(ValueType::F64(s)) => s,
+                Some(Value::F64(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("amount".to_string())),
             },
         };
@@ -58,7 +58,7 @@ impl Transfer {
         let recipient = match self.recipient {
             Some(s) => s,
             None => match inputs.remove("recipient") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
             },
         };
@@ -66,7 +66,7 @@ impl Transfer {
         let sender = match self.sender {
             Some(s) => s,
             None => match inputs.remove("sender") {
-                Some(ValueType::NodeIdOpt(s)) => s,
+                Some(Value::NodeIdOpt(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("sender".to_string())),
             },
         };
@@ -74,7 +74,7 @@ impl Transfer {
         let sender_owner = match self.sender_owner {
             Some(s) => s,
             None => match inputs.remove("sender_owner") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("sender_owner".to_string())),
             },
         };
@@ -82,7 +82,7 @@ impl Transfer {
         let allow_unfunded_recipient = match self.allow_unfunded_recipient {
             Some(s) => s,
             None => match inputs.remove("allow_unfunded_recipient") {
-                Some(ValueType::Bool(s)) => s,
+                Some(Value::Bool(s)) => s,
                 _ => {
                     return Err(Error::ArgumentNotFound(
                         "allow_unfunded_recipient".to_string(),
@@ -94,7 +94,7 @@ impl Transfer {
         let fund_recipient = match self.fund_recipient {
             Some(s) => s,
             None => match inputs.remove("fund_recipient") {
-                Some(ValueType::Bool(s)) => s,
+                Some(Value::Bool(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fund_recipient".to_string())),
             },
         };
@@ -102,7 +102,7 @@ impl Transfer {
         let memo: Option<String> = match self.memo.clone() {
             Some(val) => val,
             None => match inputs.remove("memo") {
-                Some(ValueType::StringOpt(s)) => s,
+                Some(Value::StringOpt(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
@@ -146,7 +146,7 @@ impl Transfer {
         )?;
 
         Ok(hashmap! {
-             "signature".to_owned() => ValueType::Success(signature),
+             "signature".to_owned() => Value::Success(signature),
         })
     }
 }

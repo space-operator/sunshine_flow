@@ -183,18 +183,20 @@ impl Datastore for DB {
             inner: vertex_query,
             name: VERTEX_PROPERTY_HOLDER.into(),
         };
+
         trans
             .set_vertex_properties(vertex_property_query, &JsonValue::Object(properties))
             .map_err(Error::SetNodeProperties)?;
 
-        let edge_key = EdgeKey {
-            outbound_id: graph_id,
-            inbound_id: node.id,
-            t: Type(indradb::util::generate_uuid_v1().to_string()),
-        };
-        if !trans.create_edge(&edge_key).map_err(Error::CreateEdge)? {
-            return Err(Error::CreateEdgeFailed);
-        }
+        self.create_edge(
+            CreateEdge {
+                from: graph_id,
+                to: node.id,
+                properties: Properties::new(),
+            },
+            graph_id,
+        )
+        .await?;
 
         Ok(Action::Mutate(graph_id, MutateKind::DeleteNode(node.id)))
     }
@@ -420,13 +422,13 @@ impl Datastore for DB {
             inner: query.into(),
             name: VERTEX_PROPERTY_HOLDER.into(),
         };
+
         let mut properties = trans
             .get_edge_properties(query)
             .map_err(Error::GetEdgeProperties)?;
 
         let properties = match properties.len() {
             1 => properties.pop().unwrap().value,
-            0 => JsonValue::Null,
             _ => unreachable!(),
         };
 

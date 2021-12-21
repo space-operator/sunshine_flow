@@ -7,7 +7,7 @@ use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_inst
 use spl_token::state::Mint;
 use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, CommandResult, ValueType};
+use crate::{error::Error, CommandResult, Value};
 
 use super::{instructions::execute, Ctx};
 
@@ -24,12 +24,12 @@ impl CreateToken {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
-        mut inputs: HashMap<String, ValueType>,
-    ) -> Result<HashMap<String, ValueType>, Error> {
+        mut inputs: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>, Error> {
         let fee_payer = match self.fee_payer {
             Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -37,7 +37,7 @@ impl CreateToken {
         let decimals = match self.decimals {
             Some(s) => s,
             None => match inputs.remove("decimals") {
-                Some(ValueType::U8(s)) => s,
+                Some(Value::U8(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("decimals".to_string())),
             },
         };
@@ -45,7 +45,7 @@ impl CreateToken {
         let authority = match self.authority {
             Some(s) => s,
             None => match inputs.remove("authority") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("authority".to_string())),
             },
         };
@@ -53,7 +53,7 @@ impl CreateToken {
         let token = match self.token {
             Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -61,7 +61,7 @@ impl CreateToken {
         let memo = match &self.memo {
             Some(s) => s.clone(),
             None => match inputs.remove("memo") {
-                Some(ValueType::String(s)) => s,
+                Some(Value::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
@@ -92,7 +92,7 @@ impl CreateToken {
         )?;
 
         Ok(hashmap! {
-            "signature".to_owned()=>ValueType::Success(signature),
+            "signature".to_owned()=>Value::Success(signature),
         })
     }
 }

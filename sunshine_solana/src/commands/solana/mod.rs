@@ -6,7 +6,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use sunshine_core::msg::{Graph, GraphId, Properties};
 use sunshine_core::store::Datastore;
 
-use crate::{error::Error, ValueType};
+use crate::{error::Error, Value};
 
 use sunshine_core::msg::NodeId;
 
@@ -20,7 +20,7 @@ mod delete_pubkey;
 pub mod generate_keypair;
 mod get_balance;
 mod mint_token;
-mod request_airdrop;
+pub mod request_airdrop;
 mod transfer;
 
 const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
@@ -219,8 +219,8 @@ pub enum Kind {
 impl Command {
     pub(crate) async fn run(
         &self,
-        inputs: HashMap<String, ValueType>,
-    ) -> Result<HashMap<String, ValueType>, Error> {
+        inputs: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>, Error> {
         match &self.kind {
             Kind::GenerateKeypair(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::DeleteKeypair(k) => k.run(self.ctx.clone(), inputs).await,

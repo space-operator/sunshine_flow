@@ -5,7 +5,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::{keypair_from_seed, Keypair};
 
-use crate::{error::Error, ValueType};
+use crate::{error::Error, Value};
 
 use super::Ctx;
 
@@ -20,39 +20,47 @@ impl GenerateKeypair {
     pub async fn run(
         &self,
         ctx: Arc<Ctx>,
-        mut inputs: HashMap<String, ValueType>,
-    ) -> Result<HashMap<String, ValueType>, Error> {
+        mut inputs: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>, Error> {
         let seed_phrase = match &self.seed_phrase {
             Some(s) => s.clone(),
             None => match inputs.remove("seed_phrase") {
-                Some(ValueType::String(s)) => s,
+                Some(Value::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("seed_phrase".to_string())),
             },
         };
         let passphrase = match &self.passphrase {
             Some(s) => s.clone(),
             None => match inputs.remove("passphrase") {
-                Some(ValueType::String(s)) => s,
+                Some(Value::String(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
             },
         };
         let save: Option<String> = match self.save.clone() {
             Some(val) => val,
             None => match inputs.remove("save") {
-                Some(ValueType::StringOpt(s)) => s,
+                Some(Value::StringOpt(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("save".to_string())),
             },
         };
 
         let keypair = generate_keypair(&passphrase, &seed_phrase)?;
 
+        let mut node_id = None;
+
         if let Some(name) = save {
-            ctx.insert_keypair(name, &keypair).await?;
+            node_id = Some(ctx.insert_keypair(name, &keypair).await?);
         }
 
-        Ok(hashmap! {
-            "keypair".to_owned() => ValueType::Keypair(keypair.into()),
-        })
+        let mut outputs = hashmap! {
+            "keypair".to_owned() => Value::Keypair(keypair.into()),
+        };
+
+        if let Some(node_id) = node_id {
+            outputs.insert("node_id".into(), Value::NodeId(node_id));
+        }
+
+        Ok(outputs)
     }
 }
 

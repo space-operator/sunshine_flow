@@ -10,7 +10,7 @@ use sunshine_core::msg::NodeId;
 
 use crate::CommandResult;
 
-use crate::{error::Error, ValueType};
+use crate::{error::Error, Value};
 
 use super::{instructions::execute, Ctx};
 
@@ -26,12 +26,12 @@ impl CreateAccount {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
-        mut inputs: HashMap<String, ValueType>,
-    ) -> Result<HashMap<String, ValueType>, Error> {
+        mut inputs: HashMap<String, Value>,
+    ) -> Result<HashMap<String, Value>, Error> {
         let owner = match self.owner {
             Some(s) => s,
             None => match inputs.remove("owner") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("owner".to_string())),
             },
         };
@@ -39,7 +39,7 @@ impl CreateAccount {
         let fee_payer = match self.owner {
             Some(s) => s,
             None => match inputs.remove("fee_payer") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -47,7 +47,7 @@ impl CreateAccount {
         let token = match self.owner {
             Some(s) => s,
             None => match inputs.remove("token") {
-                Some(ValueType::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -55,7 +55,7 @@ impl CreateAccount {
         let account = match self.account {
             Some(s) => s,
             None => match inputs.remove("account") {
-                Some(ValueType::NodeIdOpt(s)) => s,
+                Some(Value::NodeIdOpt(s)) => s,
                 _ => return Err(Error::ArgumentNotFound("account".to_string())),
             },
         };
@@ -94,7 +94,7 @@ impl CreateAccount {
         )?;
 
         Ok(hashmap! {
-             "signature".to_owned() => ValueType::Success(signature),
+             "signature".to_owned() => Value::Success(signature),
         })
     }
 }

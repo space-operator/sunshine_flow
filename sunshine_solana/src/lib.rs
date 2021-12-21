@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
 use std::sync::Arc;
 
@@ -24,12 +25,12 @@ type FlowId = GraphId;
 
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;
 
-const START_NODE_MARKER: &str = "START_NODE_MARKER";
-const COMMAND_MARKER: &str = "COMMAND_MARKER";
-const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
-const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
-const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
-const CTX_MARKER: &str = "CTX_MARKER";
+pub const START_NODE_MARKER: &str = "START_NODE_MARKER";
+pub const COMMAND_MARKER: &str = "COMMAND_MARKER";
+pub const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
+pub const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
+pub const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
+pub const CTX_MARKER: &str = "CTX_MARKER";
 
 pub struct FlowContext {
     deployed: DashMap<FlowId, oneshot::Sender<()>>,
@@ -87,7 +88,6 @@ impl FlowContext {
                 commands::Config::Solana(kind) => {
                     let mut ctx = None;
                     for edge in node.inbound_edges.iter() {
-                        dbg!(edge.clone());
                         let props = db.read_edge_properties(*edge).await?;
                         if props.get(CTX_EDGE_MARKER).is_some() {
                             ctx = Some(contexts.get(&edge.from).unwrap().clone());
@@ -115,6 +115,10 @@ impl FlowContext {
         let mut start_nodes = Vec::new();
 
         for node in graph.nodes.iter() {
+            if node.properties.get(COMMAND_MARKER).is_none() {
+                continue;
+            }
+
             for edge in node.outbound_edges.iter() {
                 let properties = db
                     .execute(Action::Query(QueryKind::ReadEdgeProperties(*edge)))
@@ -176,7 +180,6 @@ impl FlowContext {
         let interval_fut = async move {
             loop {
                 interval.tick().await;
-                println!("tick");
 
                 let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
                     Ok(flow) => flow,
@@ -190,10 +193,23 @@ impl FlowContext {
                     tokio::spawn(async move {
                         let mut inputs = HashMap::new();
                         for (name, mut rx) in node.inputs {
-                            inputs.insert(name, rx.recv().await.unwrap());
+                            let input = match rx.recv().await {
+                                Some(input) => input,
+                                None => {
+                                    eprintln!("can't receive input quitting");
+                                    return;
+                                }
+                            };
+                            inputs.insert(name, input);
                         }
 
-                        let mut outputs = run_command(&node.cmd, inputs).await.unwrap();
+                        let mut outputs = match run_command(&node.cmd, inputs).await {
+                            Ok(outputs) => outputs,
+                            Err(e) => {
+                                eprintln!("failed to run command {}", e);
+                                return;
+                            }
+                        };
                         assert!(outputs.len() >= node.outputs.len());
 
                         for (name, txs) in node.outputs.into_iter() {
@@ -206,7 +222,7 @@ impl FlowContext {
                 }
 
                 for node in start_nodes {
-                    node.send(ValueType::Empty).unwrap();
+                    node.send(Value::Empty).unwrap();
                 }
             }
         };
@@ -226,8 +242,8 @@ impl FlowContext {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ValueType {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Value {
     Integer(i64),
     Keypair(WrappedKeypair),
     String(String),
@@ -245,43 +261,55 @@ pub enum ValueType {
     NodeIdOpt(Option<NodeId>),
 }
 
-#[derive(Debug)]
-pub struct WrappedKeypair(pub Keypair);
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ValueType {
+    Integer,
+    Keypair,
+    String,
+    NodeId,
+    DeletedNode,
+    Pubkey,
+    Success,
+    Balance,
+    u8,
+    u64,
+    F64,
+    Bool,
+    StringOpt,
+    Empty,
+    NodeIdOpt,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct WrappedKeypair(String);
 
 impl From<Keypair> for WrappedKeypair {
     fn from(keypair: Keypair) -> Self {
-        Self(keypair)
+        Self(keypair.to_base58_string())
     }
 }
 
 impl From<WrappedKeypair> for Keypair {
     fn from(wk: WrappedKeypair) -> Keypair {
-        wk.0
-    }
-}
-
-impl Clone for WrappedKeypair {
-    fn clone(&self) -> Self {
-        let keypair = Keypair::from_bytes(&self.0.to_bytes()).unwrap();
-        Self(keypair)
+        Keypair::from_base58_string(&wk.0)
     }
 }
 
 pub struct Flow {
-    start_nodes: Vec<Sender<ValueType>>,
+    start_nodes: Vec<Sender<Value>>,
     nodes: HashMap<NodeId, FlowNode>,
 }
 
 struct FlowNode {
-    inputs: HashMap<String, Receiver<ValueType>>,
-    outputs: HashMap<String, Vec<Sender<ValueType>>>,
+    inputs: HashMap<String, Receiver<Value>>,
+    outputs: HashMap<String, Vec<Sender<Value>>>,
     cmd: Command,
 }
 
 async fn run_command(
     cmd: &Command,
-    inputs: HashMap<String, ValueType>,
-) -> Result<HashMap<String, ValueType>, Error> {
+    inputs: HashMap<String, Value>,
+) -> Result<HashMap<String, Value>, Error> {
     match cmd {
         Command::Simple(simple) => simple.run(inputs).await,
         Command::Solana(solana) => solana.run(inputs).await,
