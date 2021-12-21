@@ -17,7 +17,7 @@ mod create_account;
 mod create_token;
 mod delete_keypair;
 mod delete_pubkey;
-mod generate_keypair;
+pub mod generate_keypair;
 mod get_balance;
 mod mint_token;
 mod request_airdrop;
@@ -29,8 +29,8 @@ const PUBKEY_MARKER: &str = "PUBKEY_MARKER";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
-    url: String,
-    wallet_graph: GraphId,
+    pub url: String,
+    pub wallet_graph: GraphId,
 }
 
 pub struct Ctx {

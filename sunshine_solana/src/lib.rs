@@ -16,7 +16,7 @@ use tokio::sync::oneshot;
 use tokio::time::Duration;
 use uuid::Uuid;
 
-mod commands;
+pub mod commands;
 mod error;
 use error::Error;
 
@@ -87,6 +87,7 @@ impl FlowContext {
                 commands::Config::Solana(kind) => {
                     let mut ctx = None;
                     for edge in node.inbound_edges.iter() {
+                        dbg!(edge.clone());
                         let props = db.read_edge_properties(*edge).await?;
                         if props.get(CTX_EDGE_MARKER).is_some() {
                             ctx = Some(contexts.get(&edge.from).unwrap().clone());
