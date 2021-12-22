@@ -10,7 +10,7 @@ use super::Ctx;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct GetBalance {
-    pub node_id: Option<NodeId>,
+    pub pubkey: Option<NodeId>,
 }
 
 impl GetBalance {
@@ -19,15 +19,14 @@ impl GetBalance {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let node_id = match &self.node_id {
-            Some(node_id) => *node_id,
-            None => match inputs.remove("node_id") {
-                Some(Value::NodeId(node_id)) => node_id,
-                _ => return Err(Error::ArgumentNotFound("node_id".to_string())),
+        let pubkey = match self.pubkey {
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
+            None => match inputs.remove("pubkey") {
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
+                _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };
-
-        let pubkey = ctx.get_pubkey_by_id(node_id).await?;
 
         let balance = ctx.client.get_balance(&pubkey)?;
 

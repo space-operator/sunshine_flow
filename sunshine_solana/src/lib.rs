@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
+use solana_sdk::signer::Signer;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use commands::Command;
@@ -14,6 +16,7 @@ use sunshine_core::store::Datastore;
 use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as Sender};
 use tokio::sync::oneshot;
 
+use parse_display::Display as ParseDisplay;
 use tokio::time::Duration;
 use uuid::Uuid;
 
@@ -203,17 +206,33 @@ impl FlowContext {
                             inputs.insert(name, input);
                         }
 
-                        let mut outputs = match run_command(&node.cmd, inputs).await {
+                        //println!("executing {:?}", node.cmd.kind());
+                        //println!("{:#?}", &inputs);
+
+                        let mut outputs = match run_command(&node.cmd, inputs.clone()).await {
                             Ok(outputs) => outputs,
                             Err(e) => {
                                 eprintln!("failed to run command {}", e);
                                 return;
                             }
                         };
-                        assert!(outputs.len() >= node.outputs.len());
+
+                        for (name, value) in inputs {
+                            if !outputs.contains_key(&name) {
+                                outputs.insert(name, value);
+                            }
+                        }
+
+                        println!("executed {:?}", node.cmd.kind());
 
                         for (name, txs) in node.outputs.into_iter() {
-                            let val = outputs.remove(&name).unwrap();
+                            let val = match outputs.get(&name) {
+                                Some(val) => val.clone(),
+                                None => {
+                                    eprintln!("output with name {} not found", name);
+                                    return;
+                                }
+                            };
                             for tx in txs {
                                 tx.send(val.clone()).unwrap();
                             }
@@ -261,8 +280,49 @@ pub enum Value {
     NodeIdOpt(Option<NodeId>),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum ValueType {
+impl Value {
+    fn kind(&self) -> ValueKind {
+        match self {
+            Value::Integer(_) => ValueKind::Integer,
+            Value::Keypair(_) => ValueKind::Keypair,
+            Value::String(_) => ValueKind::String,
+            Value::NodeId(_) => ValueKind::NodeId,
+            Value::DeletedNode(_) => ValueKind::DeletedNode,
+            Value::Pubkey(_) => ValueKind::Pubkey,
+            Value::Success(_) => ValueKind::Success,
+            Value::Balance(_) => ValueKind::Balance,
+            Value::U8(_) => ValueKind::U8,
+            Value::U64(_) => ValueKind::U64,
+            Value::F64(_) => ValueKind::F64,
+            Value::Bool(_) => ValueKind::Bool,
+            Value::StringOpt(_) => ValueKind::StringOpt,
+            Value::Empty => ValueKind::Empty,
+            Value::NodeIdOpt(_) => ValueKind::NodeIdOpt,
+        }
+    }
+}
+
+impl TryInto<Pubkey> for Value {
+    type Error = Error;
+
+    fn try_into(self) -> Result<Pubkey, Error> {
+        let res = match self {
+            Value::Keypair(kp) => {
+                let kp: Keypair = kp.into();
+                kp.pubkey()
+            }
+            Value::Pubkey(p) => p,
+            Value::String(s) => Pubkey::from_str(s.as_str())?,
+            _ => return Err(Error::ValueIntoError(self.kind(), "Pubkey".to_owned())),
+        };
+
+        Ok(res)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ParseDisplay)]
+#[display(style = "snake_case")]
+pub enum ValueKind {
     Integer,
     Keypair,
     String,
@@ -271,8 +331,8 @@ pub enum ValueType {
     Pubkey,
     Success,
     Balance,
-    u8,
-    u64,
+    U8,
+    U64,
     F64,
     Bool,
     StringOpt,

@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
+use solana_sdk::pubkey::Pubkey;
 use sunshine_core::msg::NodeId;
 
 use crate::{error::Error, Value};
@@ -21,9 +22,10 @@ impl RequestAirdrop {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let pubkey = match &self.pubkey {
-            Some(s) => *s,
+            Some(p) => ctx.get_pubkey_by_id(*p).await?,
             None => match inputs.remove("pubkey") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };
@@ -35,8 +37,6 @@ impl RequestAirdrop {
                 _ => return Err(Error::ArgumentNotFound("amount".to_string())),
             },
         };
-
-        let pubkey = ctx.get_pubkey_by_id(pubkey).await?;
 
         let signature = ctx.client.request_airdrop(&pubkey, amount)?;
 

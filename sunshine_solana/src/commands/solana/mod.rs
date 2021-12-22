@@ -12,16 +12,16 @@ use sunshine_core::msg::NodeId;
 
 mod instructions;
 
-mod add_pubkey;
-mod create_account;
-mod create_token;
-mod delete_keypair;
-mod delete_pubkey;
+pub mod add_pubkey;
+pub mod create_account;
+pub mod create_token;
+pub mod delete_keypair;
+pub mod delete_pubkey;
 pub mod generate_keypair;
-mod get_balance;
-mod mint_token;
+pub mod get_balance;
+pub mod mint_token;
 pub mod request_airdrop;
-mod transfer;
+pub mod transfer;
 
 const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
 const NAME_MARKER: &str = "NAME_MARKER";
@@ -216,6 +216,20 @@ pub enum Kind {
     Transfer(transfer::Transfer),
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum CommandKind {
+    GenerateKeypair,
+    DeleteKeypair,
+    AddPubkey,
+    DeletePubkey,
+    CreateAccount,
+    GetBalance,
+    CreateToken,
+    RequestAirdrop,
+    MintToken,
+    Transfer,
+}
+
 impl Command {
     pub(crate) async fn run(
         &self,
@@ -232,6 +246,21 @@ impl Command {
             Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
+        }
+    }
+
+    pub fn kind(&self) -> CommandKind {
+        match self.kind {
+            Kind::GenerateKeypair(_) => CommandKind::GenerateKeypair,
+            Kind::DeleteKeypair(_) => CommandKind::DeleteKeypair,
+            Kind::AddPubkey(_) => CommandKind::AddPubkey,
+            Kind::DeletePubkey(_) => CommandKind::DeletePubkey,
+            Kind::CreateAccount(_) => CommandKind::CreateAccount,
+            Kind::GetBalance(_) => CommandKind::GetBalance,
+            Kind::CreateToken(_) => CommandKind::CreateToken,
+            Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
+            Kind::MintToken(_) => CommandKind::MintToken,
+            Kind::Transfer(_) => CommandKind::Transfer,
         }
     }
 }

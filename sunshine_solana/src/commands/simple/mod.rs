@@ -50,4 +50,19 @@ impl Command {
             }
         }
     }
+
+    pub fn kind(&self) -> CommandKind {
+        match self {
+            Command::Const(_) => CommandKind::Const,
+            Command::Print => CommandKind::Print,
+            Command::GetPubkeyFromKeypair => CommandKind::GetPubkeyFromKeypair,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum CommandKind {
+    Const,
+    Print,
+    GetPubkeyFromKeypair,
 }

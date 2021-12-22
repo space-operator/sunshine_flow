@@ -1918,6 +1918,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse-display"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "898bf4c2a569dedbfd4e6c3f0bbd0ae825e5b6b0b69bae3e3c1000158689334a"
+dependencies = [
+ "once_cell",
+ "parse-display-derive",
+ "regex",
+]
+
+[[package]]
+name = "parse-display-derive"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1779d1e28ab04568223744c2af4aa4e642e67b92c76bdce0929a6d2c36267199"
+dependencies = [
+ "once_cell",
+ "proc-macro2 1.0.33",
+ "quote 1.0.10",
+ "regex",
+ "regex-syntax",
+ "structmeta",
+ "syn 1.0.82",
+]
+
+[[package]]
 name = "pathfinding"
 version = "2.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3227,6 +3253,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
+name = "structmeta"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59915b528a896f2e3bfa1a6ace65f7bb0ff9f9863de6213b0c01cb6fd3c3ac71"
+dependencies = [
+ "proc-macro2 1.0.33",
+ "quote 1.0.10",
+ "structmeta-derive",
+ "syn 1.0.82",
+]
+
+[[package]]
+name = "structmeta-derive"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b73800bcca56045d5ab138a48cd28a96093335335deaa916f22b5749c4150c79"
+dependencies = [
+ "proc-macro2 1.0.33",
+ "quote 1.0.10",
+ "syn 1.0.82",
+]
+
+[[package]]
 name = "subtle"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3298,6 +3347,7 @@ dependencies = [
  "either",
  "futures",
  "maplit",
+ "parse-display",
  "pathfinding",
  "serde",
  "serde_json",

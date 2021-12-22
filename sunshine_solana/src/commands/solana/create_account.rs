@@ -29,43 +29,46 @@ impl CreateAccount {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let owner = match self.owner {
-            Some(s) => s,
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("owner") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("owner".to_string())),
             },
         };
 
-        let fee_payer = match self.owner {
-            Some(s) => s,
+        let fee_payer = match self.fee_payer {
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("fee_payer") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
-        let token = match self.owner {
-            Some(s) => s,
+        let token = match self.token {
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("token") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
 
         let account = match self.account {
-            Some(s) => s,
-            None => match inputs.remove("account") {
-                Some(Value::NodeIdOpt(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("account".to_string())),
+            Some(s) => match s {
+                Some(account) => Some(ctx.get_keypair_by_id(account).await?),
+                None => None,
             },
-        };
-
-        let owner = ctx.get_pubkey_by_id(owner).await?;
-        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
-        let token = ctx.get_pubkey_by_id(token).await?;
-        let account = match account {
-            Some(account) => Some(ctx.get_keypair_by_id(account).await?),
-            None => None,
+            None => match inputs.remove("account") {
+                Some(Value::NodeIdOpt(s)) => match s {
+                    Some(account) => Some(ctx.get_keypair_by_id(account).await?),
+                    None => None,
+                },
+                Some(Value::Keypair(k)) => Some(k.into()),
+                Some(Value::Empty) => None,
+                _ => None,
+            },
         };
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_account(

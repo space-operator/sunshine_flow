@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
+use std::convert::TryInto;
 
 use crate::{error::Error, Value};
 
@@ -31,7 +32,8 @@ impl AddPubkey {
         let pubkey = match &self.pubkey {
             Some(p) => *p,
             None => match inputs.remove("pubkey") {
-                Some(Value::Pubkey(p)) => p,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("pubkey".to_string())),
             },
         };

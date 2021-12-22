@@ -9,6 +9,21 @@ pub enum Command {
     Solana(solana::Command),
 }
 
+impl Command {
+    pub fn kind(&self) -> CommandKind {
+        match self {
+            Command::Simple(s) => CommandKind::Simple(s.kind()),
+            Command::Solana(s) => CommandKind::Solana(s.kind()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum CommandKind {
+    Simple(simple::CommandKind),
+    Solana(solana::CommandKind),
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Config {
     Simple(simple::Command),

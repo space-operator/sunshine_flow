@@ -1,5 +1,7 @@
+use crate::ValueKind;
 use solana_client::client_error::ClientError as SolanaClientError;
 use solana_sdk::program_error::ProgramError as SolanaProgramError;
+use solana_sdk::pubkey::ParsePubkeyError;
 use solana_sdk::signer::SignerError as SolanaSignerError;
 use thiserror::Error as ThisError;
 
@@ -26,7 +28,7 @@ pub enum Error {
     #[error("failed to get keypair from seed: {0}")]
     KeypairFromSeed(String),
     #[error("failed to parse public key from string: {0}")]
-    ParsePubKey(solana_sdk::pubkey::ParsePubkeyError),
+    ParsePubkey(ParsePubkeyError),
     #[error("solana client error: {0}")]
     SolanaClient(SolanaClientError),
     #[error("solana signer error: {0}")]
@@ -41,6 +43,14 @@ pub enum Error {
     SolanaProgram(SolanaProgramError),
     #[error("no context for command")]
     NoContextForCommand,
+    #[error("error when trying to convert value of type {0} to type {1}")]
+    ValueIntoError(ValueKind, String),
+}
+
+impl From<ParsePubkeyError> for Error {
+    fn from(err: ParsePubkeyError) -> Error {
+        Error::ParsePubkey(err)
+    }
 }
 
 impl From<SolanaProgramError> for Error {

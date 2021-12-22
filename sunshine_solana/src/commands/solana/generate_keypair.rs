@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use bip39::{Language, Mnemonic, Seed};
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
-use solana_sdk::signature::{keypair_from_seed, Keypair};
+use solana_sdk::{
+    signature::{keypair_from_seed, Keypair},
+    signer::Signer,
+};
 
 use crate::{error::Error, Value};
 
@@ -53,6 +56,7 @@ impl GenerateKeypair {
         }
 
         let mut outputs = hashmap! {
+            "pubkey".to_owned() => Value::Pubkey(keypair.pubkey()),
             "keypair".to_owned() => Value::Keypair(keypair.into()),
         };
 

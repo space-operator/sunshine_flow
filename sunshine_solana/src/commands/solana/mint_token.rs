@@ -27,25 +27,28 @@ impl MintToken {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let token = match self.token {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("token") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
 
         let recipient = match self.recipient {
-            Some(s) => s,
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("recipient") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
             },
         };
 
         let mint_authority = match self.mint_authority {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("mint_authority") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("mint_authority".to_string())),
             },
         };
@@ -59,17 +62,13 @@ impl MintToken {
         };
 
         let fee_payer = match self.fee_payer {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("fee_payer") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
-
-        let token = ctx.get_keypair_by_id(token).await?;
-        let mint_authority = ctx.get_keypair_by_id(mint_authority).await?;
-        let recipient = ctx.get_pubkey_by_id(recipient).await?;
-        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
             &ctx.client,

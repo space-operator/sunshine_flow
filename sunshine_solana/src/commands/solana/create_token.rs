@@ -27,9 +27,10 @@ impl CreateToken {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let fee_payer = match self.fee_payer {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("fee_payer") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
@@ -43,17 +44,19 @@ impl CreateToken {
         };
 
         let authority = match self.authority {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("authority") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("authority".to_string())),
             },
         };
 
         let token = match self.token {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("token") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -65,10 +68,6 @@ impl CreateToken {
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
-
-        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
-        let authority = ctx.get_keypair_by_id(authority).await?;
-        let token = ctx.get_keypair_by_id(token).await?;
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
             &ctx.client,

@@ -22,6 +22,7 @@ futures = "0.3.18"
 maplit = "1.0.2"
 either = { version = "1.6.1", features = [ "serde" ] }
 uuid = { version = "0.8", features = ["v4"] }
+parse-display = "0.5.3"
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
