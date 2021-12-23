@@ -1,6 +1,8 @@
 
 
-error handling
+
+single flat error type> error handling
+reading arguments
 convert command implementations
 correctness of types
 triggers

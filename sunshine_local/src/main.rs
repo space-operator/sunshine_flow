@@ -6,6 +6,7 @@ use sunshine_core::msg::{CreateEdge, MutateKind, NodeId};
 use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
 use sunshine_solana::commands::simple;
+use sunshine_solana::commands::solana::get_balance::GetBalance;
 use sunshine_solana::commands::solana::transfer::Transfer;
 use sunshine_solana::commands::solana::{self, Kind};
 use sunshine_solana::{
@@ -69,7 +70,8 @@ async fn main() {
     // node 0 - const seed
     let seed = "beach soldier piano click essay sock stable cover angle wear aunt advice";
 
-    let simple_command = simple::Command::Const(sunshine_solana::Value::String(seed.into()));
+    let simple_command =
+        simple::Command::Const(sunshine_solana::Value::StringOpt(Some(seed.into())));
 
     let mut props = serde_json::Map::new();
 
@@ -91,9 +93,9 @@ async fn main() {
     // node 1 - generate keypair
 
     let keypair = solana::generate_keypair::GenerateKeypair {
-        seed_phrase: None,
+        seed_phrase: solana::generate_keypair::Arg::None,
         passphrase: Some("pass".into()),
-        save: Some(Some("first_keypair".into())),
+        save: solana::generate_keypair::Arg::Some(None),
     };
     let mut props = serde_json::Map::new();
 
@@ -103,25 +105,6 @@ async fn main() {
     );
 
     let node1 = db
-        .execute(Action::Mutate(flow_graph_id, MutateKind::CreateNode(props)))
-        .await
-        .unwrap()
-        .as_id()
-        .unwrap();
-
-    // node 2 - keypair to pubkey
-
-    let mut props = serde_json::Map::new();
-
-    props.insert(
-        COMMAND_MARKER.into(),
-        serde_json::to_value(&commands::Config::Simple(
-            simple::Command::GetPubkeyFromKeypair,
-        ))
-        .unwrap(),
-    );
-
-    let node2 = db
         .execute(Action::Mutate(flow_graph_id, MutateKind::CreateNode(props)))
         .await
         .unwrap()
@@ -185,44 +168,27 @@ async fn main() {
         flow_graph_id,
         MutateKind::CreateEdge(CreateEdge {
             from: node1,
-            to: node2,
-            properties: serde_json::json! ({
-                OUTPUT_ARG_NAME_MARKER: "keypair",
-                INPUT_ARG_NAME_MARKER: "keypair",
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        }),
-    ))
-    .await
-    .unwrap();
-
-    db.execute(Action::Mutate(
-        flow_graph_id,
-        MutateKind::CreateEdge(CreateEdge {
-            from: node2,
-            to: node3,
-            properties: serde_json::json! ({
-                OUTPUT_ARG_NAME_MARKER: "pubkey",
-                INPUT_ARG_NAME_MARKER: "print",
-            })
-            .as_object()
-            .unwrap()
-            .clone(),
-        }),
-    ))
-    .await
-    .unwrap();
-
-    db.execute(Action::Mutate(
-        flow_graph_id,
-        MutateKind::CreateEdge(CreateEdge {
-            from: node2,
             to: node4,
             properties: serde_json::json! ({
                 OUTPUT_ARG_NAME_MARKER: "pubkey",
                 INPUT_ARG_NAME_MARKER: "pubkey",
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        }),
+    ))
+    .await
+    .unwrap();
+
+    db.execute(Action::Mutate(
+        flow_graph_id,
+        MutateKind::CreateEdge(CreateEdge {
+            from: node1,
+            to: node3,
+            properties: serde_json::json! ({
+                OUTPUT_ARG_NAME_MARKER: "pubkey",
+                INPUT_ARG_NAME_MARKER: "print",
             })
             .as_object()
             .unwrap()
@@ -314,30 +280,35 @@ async fn main() {
         node_id
     };
 
+    let add_solana_node = |db: Arc<DB>,
+                           cfg: commands::Config,
+                           is_start_node: bool,
+                           mut inbound_edges: Vec<(NodeId, JsonValue)>| async move {
+        inbound_edges.push((
+            solana_ctx_node_id,
+            serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
+        ));
+        add_node(db, cfg, is_start_node, inbound_edges).await
+    };
+
     // used //kiss february ivory merge topic uncover female cancel innocent leg surprise cabbage
     // laugh toy good ring measure position random squirrel penalty prosper write liar
     // must motor sail initial budget moral drip asthma slide steak since lesson
     // used // hello deer force person lunch wonder cash crater happy security punch decade
 
-    let node14 = add_node(
+    let node14 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
-            seed_phrase: Some(
-                "antenna ceiling age disagree obvious road true inform gun vintage mixed cereal"
-                    .into(),
-            ),
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("asdasdas".into()),
-            save: Some(Some("14".into())),
+            save: solana::generate_keypair::Arg::Some(None),
         })),
         true,
-        vec![(
-            solana_ctx_node_id,
-            serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-        )],
+        vec![],
     )
     .await;
 
-    let node5 = add_node(
+    let node5 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::CreateToken(CreateToken {
             fee_payer: None,
@@ -348,10 +319,6 @@ async fn main() {
         })),
         false,
         vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
             (
                 node1,
                 serde_json::json!({
@@ -377,25 +344,19 @@ async fn main() {
     )
     .await;
 
-    let node17 = add_node(
+    let node17 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
-            seed_phrase: Some(
-                "kiss february ivory merge topic uncover female cancel innocent leg surprise cabbage".into(),
-            ),
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("123123".into()),
-            save: Some(Some("17".into())),
+            save: solana::generate_keypair::Arg::Some(None),
         })),
         true,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),],
+        vec![],
     )
     .await;
 
-    let node6 = add_node(
+    let node6 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::CreateAccount(CreateAccount {
             owner: None,
@@ -405,10 +366,6 @@ async fn main() {
         })),
         false,
         vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
             (
                 node17,
                 serde_json::json!({
@@ -441,23 +398,17 @@ async fn main() {
     )
     .await;
 
-    let node8 = add_node(
+    let node8 = add_solana_node(
         db.clone(),
         commands::Config::Simple(simple::Command::Print),
         false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node17,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
-                    INPUT_ARG_NAME_MARKER: "print",
-                }),
-            ),
-        ],
+        vec![(
+            node17,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "pubkey",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
     )
     .await;
 
@@ -465,55 +416,45 @@ async fn main() {
         db.clone(),
         commands::Config::Simple(simple::Command::Print),
         false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node5,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
-                    INPUT_ARG_NAME_MARKER: "print",
-                }),
-            ),
-        ],
+        vec![(
+            node5,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "token",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
     )
     .await;
 
-    let node9 = add_node(
+    let node9 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::MintToken(MintToken {
             token: None,
             recipient: None,
             mint_authority: None,
-            amount: Some(1.23456),
+            amount: Some(501.23456),
             fee_payer: None,
         })),
         false,
         vec![
             (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
                 node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    OUTPUT_ARG_NAME_MARKER: "account",
                     INPUT_ARG_NAME_MARKER: "recipient",
                 }),
             ),
             (
                 node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    OUTPUT_ARG_NAME_MARKER: "fee_payer",
                     INPUT_ARG_NAME_MARKER: "mint_authority",
                 }),
             ),
             (
                 node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    OUTPUT_ARG_NAME_MARKER: "fee_payer",
                     INPUT_ARG_NAME_MARKER: "fee_payer",
                 }),
             ),
@@ -528,21 +469,15 @@ async fn main() {
     )
     .await;
 
-    let node18 = add_node(
+    let node18 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
-            seed_phrase: Some(
-                "hello deer force person lunch wonder cash crater happy security punch decade"
-                    .into(),
-            ),
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("pass".into()),
-            save: Some(Some("18".into())),
+            save: solana::generate_keypair::Arg::Some(None),
         })),
         true,
-        vec![(
-            solana_ctx_node_id,
-            serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-        )],
+        vec![],
     )
     .await;
 
@@ -550,62 +485,17 @@ async fn main() {
         db.clone(),
         commands::Config::Simple(simple::Command::Print),
         false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node17,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "pubkey",
-                    INPUT_ARG_NAME_MARKER: "print",
-                }),
-            ),
-        ],
+        vec![(
+            node17,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "pubkey",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
     )
     .await;
 
-    let node7 = add_node(
-        db.clone(),
-        commands::Config::Solana(Kind::CreateAccount(CreateAccount {
-            owner: None,
-            fee_payer: None,
-            token: None,
-            account: None,
-        })),
-        false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node18,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
-                    INPUT_ARG_NAME_MARKER: "account",
-                }),
-            ),
-            (
-                node1,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
-                    INPUT_ARG_NAME_MARKER: "owner",
-                }),
-            ),
-            (
-                node1,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
-                    INPUT_ARG_NAME_MARKER: "fee_payer",
-                }),
-            ),
-        ],
-    )
-    .await;
-
-    let node11 = add_node(
+    let node11 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::Transfer(Transfer {
             fee_payer: None,
@@ -621,8 +511,11 @@ async fn main() {
         false,
         vec![
             (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
+                node18,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    INPUT_ARG_NAME_MARKER: "recipient",
+                }),
             ),
             (
                 node9,
@@ -634,82 +527,49 @@ async fn main() {
             (
                 node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    OUTPUT_ARG_NAME_MARKER: "fee_payer",
                     INPUT_ARG_NAME_MARKER: "sender_owner",
                 }),
             ),
             (
-                node1,
+                node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    OUTPUT_ARG_NAME_MARKER: "account",
                     INPUT_ARG_NAME_MARKER: "sender",
                 }),
             ),
             (
-                node1,
+                node6,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    OUTPUT_ARG_NAME_MARKER: "fee_payer",
                     INPUT_ARG_NAME_MARKER: "fee_payer",
                 }),
             ),
-            (
-                node7,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
-                    INPUT_ARG_NAME_MARKER: "recipient",
-                }),
-            ),
         ],
     )
     .await;
 
-    let node12 = add_node(
+    let node21 = add_node(
         db.clone(),
         commands::Config::Simple(simple::Command::Print),
         false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node11,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "sender_owner",
-                    INPUT_ARG_NAME_MARKER: "print",
-                }),
-            ),
-        ],
-    )
-    .await;
-
-    let node13 = add_node(
-        db.clone(),
-        commands::Config::Simple(simple::Command::Print),
-        false,
-        vec![
-            (
-                solana_ctx_node_id,
-                serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
-            ),
-            (
-                node11,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "recipient",
-                    INPUT_ARG_NAME_MARKER: "print",
-                }),
-            ),
-        ],
+        vec![(
+            node11,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "recipient_acc",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
     )
     .await;
 
     // deploy
     flow_context
-        .deploy_flow(Duration::from_secs(3), flow_graph_id)
+        .deploy_flow(Duration::from_secs(100000000000), flow_graph_id)
         .await
         .unwrap();
 
-    tokio::time::sleep(Duration::from_secs(7)).await;
+    tokio::time::sleep(Duration::from_secs(100)).await;
 
     // create flow graph
     // create solana context nodes

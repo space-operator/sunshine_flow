@@ -99,7 +99,13 @@ impl CreateAccount {
         let mut outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
             "token".to_owned()=> Value::Pubkey(token),
+            "owner".to_owned() => Value::Pubkey(owner),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
+
+        if let Some(account) = account {
+            outputs.insert("account".into(), Value::Keypair(account.into()));
+        }
 
         Ok(outputs)
     }

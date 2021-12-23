@@ -155,11 +155,13 @@ impl FlowContext {
                     }
                 }
 
-                nodes
+                let overridden = nodes
                     .get_mut(&edge.to)
                     .unwrap()
                     .inputs
                     .insert(input_arg_name.to_owned(), rx);
+
+                assert!(overridden.is_none());
             }
             if node.properties.contains_key(START_NODE_MARKER) {
                 let (tx, rx) = mpsc::unbounded_channel();
@@ -191,10 +193,12 @@ impl FlowContext {
                         return;
                     }
                 };
-
                 for (_, node) in nodes {
                     tokio::spawn(async move {
                         let mut inputs = HashMap::new();
+
+                        println!("{:?} WAITING FOR INPUTS", node.cmd.kind());
+
                         for (name, mut rx) in node.inputs {
                             let input = match rx.recv().await {
                                 Some(input) => input,
@@ -209,19 +213,13 @@ impl FlowContext {
                         println!("executing {:?}", node.cmd.kind());
                         println!("{:#?}", &inputs);
 
-                        let mut outputs = match run_command(&node.cmd, inputs.clone()).await {
+                        let outputs = match run_command(&node.cmd, inputs.clone()).await {
                             Ok(outputs) => outputs,
                             Err(e) => {
                                 eprintln!("failed to run command {}", e);
                                 return;
                             }
                         };
-
-                        for (name, value) in inputs {
-                            if !outputs.contains_key(&name) {
-                                outputs.insert(name, value);
-                            }
-                        }
 
                         println!("executed {:?}", node.cmd.kind());
 

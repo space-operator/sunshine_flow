@@ -82,16 +82,18 @@ impl CreateToken {
 
         let signers: Vec<&dyn Signer> = vec![&authority, &fee_payer, &token];
 
-        let signature = execute(
+        let res = execute(
             &signers,
             &ctx.client,
             &fee_payer_pubkey,
             &instructions,
             minimum_balance_for_rent_exemption,
-        )?;
+        );
 
-        let mut outputs = hashmap! {
-            "token".to_owned()=> Value::Pubkey(token.pubkey()),
+        let signature = res?;
+
+        let outputs = hashmap! {
+            "token".to_owned()=> Value::Keypair(token.into()),
             "signature".to_owned()=>Value::Success(signature),
         };
 

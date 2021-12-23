@@ -1,6 +1,7 @@
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
+use solana_sdk::instruction::Instruction;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_program};
 use spl_token::instruction::transfer_checked;
 use std::{collections::HashMap, sync::Arc};
@@ -32,17 +33,19 @@ impl Transfer {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let fee_payer = match self.fee_payer {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("fee_payer") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("fee_payer".to_string())),
             },
         };
 
         let token = match self.token {
-            Some(s) => s,
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("token") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -56,25 +59,35 @@ impl Transfer {
         };
 
         let recipient = match self.recipient {
-            Some(s) => s,
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("recipient") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("recipient".to_string())),
             },
         };
 
         let sender = match self.sender {
-            Some(s) => s,
+            Some(s) => match s {
+                Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
+                None => None,
+            },
             None => match inputs.remove("sender") {
-                Some(Value::NodeIdOpt(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("sender".to_string())),
+                Some(Value::NodeIdOpt(s)) => match s {
+                    Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
+                    None => None,
+                },
+                Some(Value::Keypair(k)) => Some(k.into()),
+                Some(Value::Empty) => None,
+                _ => None,
             },
         };
 
         let sender_owner = match self.sender_owner {
-            Some(s) => s,
+            Some(s) => ctx.get_keypair_by_id(s).await?,
             None => match inputs.remove("sender_owner") {
-                Some(Value::NodeId(s)) => s,
+                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
+                Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("sender_owner".to_string())),
             },
         };
@@ -107,16 +120,7 @@ impl Transfer {
             },
         };
 
-        let fee_payer = ctx.get_keypair_by_id(fee_payer).await?;
-        let token = ctx.get_pubkey_by_id(token).await?;
-        let recipient = ctx.get_pubkey_by_id(recipient).await?;
-        let sender = match sender {
-            Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
-            None => None,
-        };
-        let sender_owner = ctx.get_keypair_by_id(sender_owner).await?;
-
-        let (minimum_balance_for_rent_exemption, instructions) = command_transfer(
+        let (minimum_balance_for_rent_exemption, instructions, recipient_acc) = command_transfer(
             &ctx.client,
             &fee_payer.pubkey(),
             token,
@@ -147,8 +151,7 @@ impl Transfer {
 
         let outputs = hashmap! {
             "sender_owner".to_owned()=> Value::Pubkey(sender_owner.pubkey()),
-            "recipient".to_owned()=> Value::Pubkey(recipient),
-
+            "recipient_acc".to_owned()=> Value::Pubkey(recipient_acc),
         };
 
         Ok(outputs)
@@ -169,13 +172,13 @@ pub fn command_transfer(
     allow_unfunded_recipient: bool,
     fund_recipient: bool,
     memo: Option<String>,
-) -> CommandResult {
+) -> Result<(u64, Vec<Instruction>, Pubkey), Error> {
     let sender = if let Some(sender) = sender {
         sender
     } else {
         spl_associated_token_account::get_associated_token_address(&sender_owner, &token)
     };
-    let (_, decimals) = resolve_mint_info(client, &recipient).unwrap();
+    let (_, decimals) = resolve_mint_info(client, &sender).unwrap();
     let transfer_balance = spl_token::ui_amount_to_amount(ui_amount, decimals);
     let transfer_balance = {
         let sender_token_amount = client
@@ -284,5 +287,9 @@ pub fn command_transfer(
         instructions.push(spl_memo::build_memo(text.as_bytes(), &[fee_payer]));
     }
 
-    Ok((minimum_balance_for_rent_exemption, instructions))
+    Ok((
+        minimum_balance_for_rent_exemption,
+        instructions,
+        recipient_token_account,
+    ))
 }

@@ -12,7 +12,6 @@ use crate::{Error, Value};
 pub enum Command {
     Const(Value),
     Print,
-    GetPubkeyFromKeypair,
 }
 
 impl Command {
@@ -33,21 +32,6 @@ impl Command {
 
                 Ok(inputs)
             }
-            Command::GetPubkeyFromKeypair => {
-                let keypair = match inputs
-                    .remove("keypair")
-                    .ok_or_else(|| Error::ArgumentNotFound("keypair".into()))?
-                {
-                    Value::Keypair(kp) => kp,
-                    _ => return Err(Error::ArgumentNotFound("keypair".into())),
-                };
-
-                let keypair: Keypair = keypair.into();
-
-                Ok(hashmap! {
-                    "pubkey".into() => Value::Pubkey(keypair.pubkey()),
-                })
-            }
         }
     }
 
@@ -55,7 +39,6 @@ impl Command {
         match self {
             Command::Const(_) => CommandKind::Const,
             Command::Print => CommandKind::Print,
-            Command::GetPubkeyFromKeypair => CommandKind::GetPubkeyFromKeypair,
         }
     }
 }
@@ -64,5 +47,4 @@ impl Command {
 pub enum CommandKind {
     Const,
     Print,
-    GetPubkeyFromKeypair,
 }
