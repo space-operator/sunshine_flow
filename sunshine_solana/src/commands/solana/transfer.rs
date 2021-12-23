@@ -145,9 +145,13 @@ impl Transfer {
             minimum_balance_for_rent_exemption,
         )?;
 
-        Ok(hashmap! {
-             "signature".to_owned() => Value::Success(signature),
-        })
+        let outputs = hashmap! {
+            "sender_owner".to_owned()=> Value::Pubkey(sender_owner.pubkey()),
+            "recipient".to_owned()=> Value::Pubkey(recipient),
+
+        };
+
+        Ok(outputs)
     }
 }
 

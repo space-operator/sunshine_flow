@@ -26,8 +26,8 @@ impl Command {
             }),
             Command::Print => {
                 let arg = inputs
-                    .get("p")
-                    .ok_or_else(|| Error::ArgumentNotFound("p".into()))?;
+                    .get("print")
+                    .ok_or_else(|| Error::ArgumentNotFound("print".into()))?;
 
                 println!("{:#?}", arg);
 

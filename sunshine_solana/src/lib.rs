@@ -206,8 +206,8 @@ impl FlowContext {
                             inputs.insert(name, input);
                         }
 
-                        //println!("executing {:?}", node.cmd.kind());
-                        //println!("{:#?}", &inputs);
+                        println!("executing {:?}", node.cmd.kind());
+                        println!("{:#?}", &inputs);
 
                         let mut outputs = match run_command(&node.cmd, inputs.clone()).await {
                             Ok(outputs) => outputs,

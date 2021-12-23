@@ -90,9 +90,12 @@ impl CreateToken {
             minimum_balance_for_rent_exemption,
         )?;
 
-        Ok(hashmap! {
+        let mut outputs = hashmap! {
+            "token".to_owned()=> Value::Pubkey(token.pubkey()),
             "signature".to_owned()=>Value::Success(signature),
-        })
+        };
+
+        Ok(outputs)
     }
 }
 

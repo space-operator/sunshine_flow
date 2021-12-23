@@ -96,9 +96,12 @@ impl CreateAccount {
             minimum_balance_for_rent_exemption,
         )?;
 
-        Ok(hashmap! {
-             "signature".to_owned() => Value::Success(signature),
-        })
+        let mut outputs = hashmap! {
+            "signature".to_owned() => Value::Success(signature),
+            "token".to_owned()=> Value::Pubkey(token),
+        };
+
+        Ok(outputs)
     }
 }
 
