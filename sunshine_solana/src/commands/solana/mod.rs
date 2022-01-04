@@ -20,6 +20,7 @@ pub mod delete_pubkey;
 pub mod generate_keypair;
 pub mod get_balance;
 pub mod mint_token;
+pub mod nft;
 pub mod request_airdrop;
 pub mod transfer;
 
@@ -214,6 +215,7 @@ pub enum Kind {
     RequestAirdrop(request_airdrop::RequestAirdrop),
     MintToken(mint_token::MintToken),
     Transfer(transfer::Transfer),
+    Nft(nft::Command),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -228,6 +230,7 @@ pub enum CommandKind {
     RequestAirdrop,
     MintToken,
     Transfer,
+    Nft(nft::CommandKind),
 }
 
 impl Command {
@@ -246,6 +249,7 @@ impl Command {
             Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::Nft(k) => k.run(self.ctx.clone(), inputs).await,
         }
     }
 
@@ -261,6 +265,7 @@ impl Command {
             Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
             Kind::MintToken(_) => CommandKind::MintToken,
             Kind::Transfer(_) => CommandKind::Transfer,
+            Kind::Nft(n) => n.kind(),
         }
     }
 }

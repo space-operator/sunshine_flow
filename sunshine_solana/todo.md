@@ -1,3 +1,23 @@
+https://github.com/metaplex-foundation/metaplex/tree/master/rust/nft-candy-machine-v2/src
+NFT nodes
+1. funded wallet
+2. configuration nodes  
+    1. 
+    2. end settings: time, count reached
+    
+    read from file
+3. prepare assets
+    read from folder
+4. create candy machine
+    https://docs.metaplex.com/candy-machine-v2/creating-candy-machine
+    https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/cli/src/candy-machine-v2-cli.ts
+
+5.
+6. mint token
+
+Fair Launch
+
+
 
 
 

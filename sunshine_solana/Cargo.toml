@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solana-sdk = "1.8.4"
-solana-client = "1.8.4"
+solana-sdk = "=1.7.11"
+solana-client = "=1.7.11"
 tiny-bip39 = "0.8.2"
 spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
 spl-memo = { version = "3.0.1", features = [ "no-entrypoint" ] }
@@ -23,6 +23,7 @@ maplit = "1.0.2"
 either = { version = "1.6.1", features = [ "serde" ] }
 uuid = { version = "0.8", features = ["v4"] }
 parse-display = "0.5.3"
+nft-candy-machine-v2 = { git = "https://github.com/metaplex-foundation/metaplex" }
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
