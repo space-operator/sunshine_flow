@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use commands::Command;
 use dashmap::DashMap;
+use metaplex_token_metadata::state::Creator;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
@@ -270,12 +271,31 @@ pub enum Value {
     Success(Signature),
     Balance(u64),
     U8(u8),
+    U16(u16),
     U64(u64),
     F64(f64),
     Bool(bool),
     StringOpt(Option<String>),
     Empty,
     NodeIdOpt(Option<NodeId>),
+    NftCreators(Vec<NftCreator>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftCreator {
+    pub address: Pubkey,
+    pub verified: bool,
+    pub share: u8,
+}
+
+impl From<NftCreator> for Creator {
+    fn from(nft_creator: NftCreator) -> Creator {
+        Creator {
+            address: nft_creator.address,
+            verified: nft_creator.verified,
+            share: nft_creator.share,
+        }
+    }
 }
 
 impl Value {
@@ -290,12 +310,14 @@ impl Value {
             Value::Success(_) => ValueKind::Success,
             Value::Balance(_) => ValueKind::Balance,
             Value::U8(_) => ValueKind::U8,
+            Value::U16(_) => ValueKind::U16,
             Value::U64(_) => ValueKind::U64,
             Value::F64(_) => ValueKind::F64,
             Value::Bool(_) => ValueKind::Bool,
             Value::StringOpt(_) => ValueKind::StringOpt,
             Value::Empty => ValueKind::Empty,
             Value::NodeIdOpt(_) => ValueKind::NodeIdOpt,
+            Value::NftCreators(_) => ValueKind::NftCreators,
         }
     }
 }
@@ -330,12 +352,14 @@ pub enum ValueKind {
     Success,
     Balance,
     U8,
+    U16,
     U64,
     F64,
     Bool,
     StringOpt,
     Empty,
     NodeIdOpt,
+    NftCreators,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

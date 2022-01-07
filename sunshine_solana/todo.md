@@ -1,14 +1,38 @@
-https://github.com/metaplex-foundation/metaplex/tree/master/rust/nft-candy-machine-v2/src
-NFT nodes
-1. funded wallet
-2. configuration nodes  
-    1. 
-    2. end settings: time, count reached
+
+Metadata
+    https://github.com/metaplex-foundation/metaplex/tree/master/rust/token-metadata/program/tests
     
-    read from file
-3. prepare assets
-    read from folder
-4. create candy machine
+    Newer repo
+        https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
+        https://github.com/metaplex-foundation/metaplex/blob/master/rust/token-metadata/test/src/main.rs
+
+    https://docs.rs/metaplex-token-metadata/0.0.1/metaplex_token_metadata/index.html
+
+NFT Standards
+    https://docs.metaplex.com/nft-standard
+
+Ticket
+
+
+last step. Burn Token
+https://docs.metaplex.com/burn-token
+
+
+
+Master Edition
+1. User creates a new Metadata for their mint with create_metadata_accounts() which makes new Metadata
+2. User wishes their mint to be a master edition and ensures that there is only required supply of one in the mint.
+3. User requests the program to designate create_master_edition() on their metadata, which creates new MasterEdition which for this example we will say has an unlimited supply. As part of the arguments to the function the user is required to make a new mint called the Printing mint over which they have minting authority that they tell the contract about and that the contract stores on the MasterEdition.
+
+4. User mints a token from the Printing mint and gives it to their friend.
+5. Their friend creates a new mint with supply 1 and calls mint_new_edition_from_master_edition_via_token(), which creates for them new Metadata and Edition records signifying this mint as an Edition child of the master edition original.
+
+
+https://github.com/samuelvanderwaal/metaboss
+https://github.com/metaplex-foundation/metaplex/issues/1448
+https://github.com/metaplex-foundation/metaplex/tree/master/rust/nft-candy-machine-v2/src
+
+
     https://docs.metaplex.com/candy-machine-v2/creating-candy-machine
     https://github.com/metaplex-foundation/metaplex/blob/master/js/packages/cli/src/candy-machine-v2-cli.ts
 
@@ -17,6 +41,8 @@ NFT nodes
 
 Fair Launch
 
+Create Store
+https://github.com/metaplex-foundation/metaplex/blob/master/rust/metaplex/program/tests/create_store.rs
 
 
 

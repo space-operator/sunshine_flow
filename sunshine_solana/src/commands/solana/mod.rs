@@ -254,7 +254,7 @@ impl Command {
     }
 
     pub fn kind(&self) -> CommandKind {
-        match self.kind {
+        match &self.kind {
             Kind::GenerateKeypair(_) => CommandKind::GenerateKeypair,
             Kind::DeleteKeypair(_) => CommandKind::DeleteKeypair,
             Kind::AddPubkey(_) => CommandKind::AddPubkey,
@@ -265,7 +265,7 @@ impl Command {
             Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
             Kind::MintToken(_) => CommandKind::MintToken,
             Kind::Transfer(_) => CommandKind::Transfer,
-            Kind::Nft(n) => n.kind(),
+            Kind::Nft(n) => CommandKind::Nft(n.kind()),
         }
     }
 }

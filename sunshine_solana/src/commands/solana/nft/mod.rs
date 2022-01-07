@@ -4,16 +4,16 @@ use std::{collections::HashMap, sync::Arc};
 use super::Ctx;
 use crate::{error::Error, Value};
 
-pub mod initialize_candy_machine;
+pub mod create_metadata_accounts;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Command {
-    InitializeCandyMachine(initialize_candy_machine::InitializeCandyMachine),
+    CreateMetadataAccounts(create_metadata_accounts::CreateMetadataAccounts),
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum CommandKind {
-    InitializeCandyMachine,
+    CreateMetadataAccounts,
 }
 
 impl Command {
@@ -23,13 +23,13 @@ impl Command {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         match self {
-            Command::InitializeCandyMachine(k) => k.run(self.ctx.clone(), inputs).await,
+            Command::CreateMetadataAccounts(k) => k.run(ctx, inputs).await,
         }
     }
 
     pub fn kind(&self) -> CommandKind {
         match self {
-            Command::InitializeCandyMachine(_) => CommandKind::InitializeCandyMachine,
+            Command::CreateMetadataAccounts(_) => CommandKind::CreateMetadataAccounts,
         }
     }
 }
