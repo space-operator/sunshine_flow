@@ -13,18 +13,17 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateMetadataAccounts {
-    metadata_account: Option<NodeId>,
-    token: Option<NodeId>,
-    token_authority: Option<NodeId>,
-    fee_payer: Option<NodeId>,        // keypair
-    update_authority: Option<NodeId>, // keypair
-    name: Option<String>,
-    symbol: Option<String>,
-    uri: Option<String>,
-    creators: Option<Vec<NftCreator>>,
-    seller_fee_basis_points: Option<u16>,
-    update_authority_is_signer: Option<bool>,
-    is_mutable: Option<bool>,
+    pub token: Option<NodeId>,
+    pub token_authority: Option<NodeId>,
+    pub fee_payer: Option<NodeId>,        // keypair
+    pub update_authority: Option<NodeId>, // keypair
+    pub name: Option<String>,
+    pub symbol: Option<String>,
+    pub uri: Option<String>,
+    pub creators: Option<Vec<NftCreator>>,
+    pub seller_fee_basis_points: Option<u16>,
+    pub update_authority_is_signer: Option<bool>,
+    pub is_mutable: Option<bool>,
 }
 
 impl CreateMetadataAccounts {
@@ -33,15 +32,6 @@ impl CreateMetadataAccounts {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let metadata_account = match self.metadata_account {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("metadata_account") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("metadata_account".to_string())),
-            },
-        };
-
         let token = match self.token {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("token") {
@@ -106,6 +96,11 @@ impl CreateMetadataAccounts {
             Some(s) => s,
             None => match inputs.remove("creators") {
                 Some(Value::NftCreators(s)) => s,
+                Some(Value::Pubkey(address)) => vec![NftCreator {
+                    address,
+                    verified: true,
+                    share: 100,
+                }],
                 _ => return Err(Error::ArgumentNotFound("creators".to_string())),
             },
         };
@@ -148,9 +143,19 @@ impl CreateMetadataAccounts {
             Some(creators.into_iter().map(NftCreator::into).collect())
         };
 
+        let program_id = metaplex_token_metadata::id();
+
+        let metadata_seeds = &[
+            metaplex_token_metadata::state::PREFIX.as_bytes(),
+            &program_id.as_ref(),
+            token.as_ref(),
+        ];
+
+        let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
+
         let (minimum_balance_for_rent_exemption, instructions) = command_create_metadata_accounts(
             &ctx.client,
-            metadata_account,
+            metadata_pubkey,
             token,
             token_authority,
             fee_payer.pubkey(),
@@ -180,6 +185,9 @@ impl CreateMetadataAccounts {
 
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
+            "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
+            "token".to_owned()=>Value::Pubkey(token),
+            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey),
         };
 
         Ok(outputs)
@@ -192,7 +200,7 @@ impl CreateMetadataAccounts {
 
 pub fn command_create_metadata_accounts(
     rpc_client: &RpcClient,
-    metadata_account: Pubkey,
+    metadata_pubkey: Pubkey,
     mint: Pubkey,
     mint_authority: Pubkey,
     payer: Pubkey,
@@ -210,10 +218,13 @@ pub fn command_create_metadata_accounts(
             metaplex_token_metadata::state::Metadata,
         >())?;
 
+    // https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
+    // This is for a print["metadata".as_bytes(), program_id.as_ref(), mint_key.as_ref(), "edition".as_bytes()]
+
     let instructions = vec![
         metaplex_token_metadata::instruction::create_metadata_accounts(
             metaplex_token_metadata::id(),
-            metadata_account,
+            metadata_pubkey,
             mint,
             mint_authority,
             payer,

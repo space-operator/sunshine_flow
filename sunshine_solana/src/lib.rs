@@ -217,7 +217,7 @@ impl FlowContext {
                         let outputs = match run_command(&node.cmd, inputs.clone()).await {
                             Ok(outputs) => outputs,
                             Err(e) => {
-                                eprintln!("failed to run command {}", e);
+                                eprintln!("failed to run command: {:#?}", e);
                                 return;
                             }
                         };

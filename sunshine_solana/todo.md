@@ -1,7 +1,15 @@
+https://explorer.solana.com/address/4HcVHVL45StjoqpPfydxuySEvah2Q2mbs8EZuaaptmaa?cluster=devnet
+
+    https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
 
 Metadata
-    https://github.com/metaplex-foundation/metaplex/tree/master/rust/token-metadata/program/tests
+example
+
+    https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/test/src/main.rs
+
     
+    https://github.com/metaplex-foundation/metaplex/tree/master/rust/token-metadata/program/tests
+    https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
     Newer repo
         https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
         https://github.com/metaplex-foundation/metaplex/blob/master/rust/token-metadata/test/src/main.rs

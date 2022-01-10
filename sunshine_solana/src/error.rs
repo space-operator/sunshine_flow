@@ -45,6 +45,8 @@ pub enum Error {
     NoContextForCommand,
     #[error("error when trying to convert value of type {0} to type {1}")]
     ValueIntoError(ValueKind, String),
+    #[error("solana airdrop failed")]
+    AirdropFailed,
 }
 
 impl From<ParsePubkeyError> for Error {

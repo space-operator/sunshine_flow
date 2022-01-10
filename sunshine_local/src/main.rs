@@ -7,18 +7,20 @@ use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
 use sunshine_solana::commands::simple;
 use sunshine_solana::commands::solana::get_balance::GetBalance;
+use sunshine_solana::commands::solana::nft::create_metadata_accounts::CreateMetadataAccounts;
+use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
-use sunshine_solana::commands::solana::{self, Kind};
+use sunshine_solana::commands::solana::{self, nft, Kind};
 use sunshine_solana::{
-    commands, FlowContext, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER,
-    OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+    commands, FlowContext, NftCreator, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER,
+    INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
 };
 
-use crate::solana::create_account::CreateAccount;
-use crate::solana::create_token::CreateToken;
-use crate::solana::generate_keypair::GenerateKeypair;
-use crate::solana::mint_token::MintToken;
-
+use sunshine_solana::commands::solana::create_account::CreateAccount;
+use sunshine_solana::commands::solana::create_token::CreateToken;
+use sunshine_solana::commands::solana::generate_keypair::GenerateKeypair;
+use sunshine_solana::commands::solana::mint_token::MintToken;
+/*
 #[tokio::main]
 async fn main() {
     // create database
@@ -580,6 +582,7 @@ async fn main() {
 
     // deploy flow
 }
+*/
 //                              6-8  8// print A pubkey
 //               5-6   6.create account A          ?  9// mint tokens to A                    6-12  12.// print A balance
 // 1-5   5.create minting account                                 6-11&7-11     11// send tokens from A to B
@@ -587,3 +590,273 @@ async fn main() {
 //                                     7-10     10.// print B pubkey
 //
 //   5-14    14// print minting account pubkey
+
+#[tokio::main]
+async fn main() {
+    let db_config = DbConfig {
+        db_path: "flow_db".into(),
+    };
+    let db = DB::new(&db_config).unwrap();
+    let db = Arc::new(db);
+
+    // create wallet
+    let wallet_graph_id = db
+        .execute(Action::CreateGraph(Default::default()))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // create graph root
+    let flow_graph_id = db
+        .execute(Action::CreateGraph(Default::default()))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    // create flow context
+    let flow_context = FlowContext::new(db.clone());
+
+    // create solana context node
+    let mut props = serde_json::Map::new();
+
+    let solana_context_config = solana::Config {
+        url: "https://api.devnet.solana.com".into(),
+        wallet_graph: wallet_graph_id,
+    };
+
+    props.insert(
+        CTX_MARKER.into(),
+        serde_json::to_value(&solana_context_config).unwrap(),
+    );
+
+    let solana_ctx_node_id = db
+        .execute(Action::Mutate(flow_graph_id, MutateKind::CreateNode(props)))
+        .await
+        .unwrap()
+        .as_id()
+        .unwrap();
+
+    let add_node = |db: Arc<DB>,
+                    cfg: commands::Config,
+                    is_start_node: bool,
+                    inbound_edges: Vec<(NodeId, JsonValue)>| async move {
+        let mut props = serde_json::Map::new();
+
+        props.insert(COMMAND_MARKER.into(), serde_json::to_value(cfg).unwrap());
+
+        if is_start_node {
+            props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
+        }
+
+        let node_id = db
+            .execute(Action::Mutate(flow_graph_id, MutateKind::CreateNode(props)))
+            .await
+            .unwrap()
+            .as_id()
+            .unwrap();
+
+        for (from, props) in inbound_edges {
+            db.execute(Action::Mutate(
+                flow_graph_id,
+                MutateKind::CreateEdge(CreateEdge {
+                    from,
+                    to: node_id,
+                    properties: props.as_object().unwrap().clone(),
+                }),
+            ))
+            .await
+            .unwrap();
+        }
+
+        node_id
+    };
+
+    let add_solana_node = |db: Arc<DB>,
+                           cfg: commands::Config,
+                           is_start_node: bool,
+                           mut inbound_edges: Vec<(NodeId, JsonValue)>| async move {
+        inbound_edges.push((
+            solana_ctx_node_id,
+            serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
+        ));
+        add_node(db, cfg, is_start_node, inbound_edges).await
+    };
+
+    let node0 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
+            passphrase: Some("123123".into()),
+            save: solana::generate_keypair::Arg::Some(None),
+        })),
+        true,
+        vec![],
+    )
+    .await;
+
+    let node1 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::RequestAirdrop(RequestAirdrop {
+            pubkey: None,
+            amount: Some(50_000_000),
+        })),
+        false,
+        vec![(
+            node0,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "pubkey",
+                INPUT_ARG_NAME_MARKER: "pubkey",
+            }),
+        )],
+    )
+    .await;
+
+    let node2 = add_node(
+        db.clone(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node0,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "pubkey",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
+
+    let node3 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
+            passphrase: Some("asdasdas".into()),
+            save: solana::generate_keypair::Arg::Some(None),
+        })),
+        false,
+        vec![(
+            node1,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "signature",
+                INPUT_ARG_NAME_MARKER: "signature",
+            }),
+        )],
+    )
+    .await;
+
+    let node4 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::CreateToken(CreateToken {
+            fee_payer: None,
+            decimals: Some(4),
+            authority: None,
+            token: None,
+            memo: Some("SUNSHINE NFT MINTING ACCOUNT".into()),
+        })),
+        false,
+        vec![
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "authority",
+                }),
+            ),
+            (
+                node3,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node6 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::CreateMetadataAccounts(
+            CreateMetadataAccounts {
+                token: None,
+                token_authority: None,
+                fee_payer: None,        // keypair
+                update_authority: None, // keypair
+                name: Some("SUNSHINE NFT".into()),
+                symbol: Some("".into()),
+                uri: Some("somelink.com".into()),
+                creators: None,
+                seller_fee_basis_points: Some(100),
+                update_authority_is_signer: Some(true),
+                is_mutable: Some(false),
+            },
+        ))),
+        false,
+        vec![
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    INPUT_ARG_NAME_MARKER: "token_authority",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "update_authority",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    INPUT_ARG_NAME_MARKER: "creators",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node7 = add_node(
+        db.clone(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node6,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "metadata_pubkey",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
+
+    flow_context
+        .deploy_flow(Duration::from_secs(100000000000), flow_graph_id)
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_secs(100)).await;
+}

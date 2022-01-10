@@ -33,8 +33,10 @@ pub(crate) fn execute(
 
     let balance = client.get_balance(fee_payer)?;
 
-    if balance < minimum_balance_for_rent_exemption + fee_calculator.calculate_fee(&message) {
-        panic!("insufficient balance");
+    let needed = minimum_balance_for_rent_exemption + fee_calculator.calculate_fee(&message);
+
+    if balance < needed {
+        panic!("insufficient balance: have={}; needed={};", balance, needed);
     }
 
     let mut transaction = Transaction::new_unsigned(message);

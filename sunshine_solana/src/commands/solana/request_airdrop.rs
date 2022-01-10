@@ -1,4 +1,4 @@
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use maplit::hashmap;
 use serde::{Deserialize, Serialize};
@@ -39,6 +39,14 @@ impl RequestAirdrop {
         };
 
         let signature = ctx.client.request_airdrop(&pubkey, amount)?;
+
+        tokio::time::sleep(Duration::from_secs(30)).await;
+
+        let succeeded = ctx.client.confirm_transaction(&signature)?;
+
+        if !succeeded {
+            return Err(Error::AirdropFailed);
+        }
 
         Ok(hashmap! {
             "signature".to_owned()=> Value::Success(signature),
