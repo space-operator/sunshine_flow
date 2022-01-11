@@ -12,21 +12,22 @@ use sunshine_core::msg::NodeId;
 use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCreator, Value};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CreateMetadataAccounts {
+pub struct CreateMasterEdition {
     pub token: Option<NodeId>,
     pub token_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
-    pub name: Option<String>,
-    pub symbol: Option<String>,
-    pub uri: Option<String>,
-    pub creators: Option<Vec<NftCreator>>,
-    pub seller_fee_basis_points: Option<u16>,
-    pub update_authority_is_signer: Option<bool>,
     pub is_mutable: Option<bool>,
+    pub max_supply: Arg,
 }
 
-impl CreateMetadataAccounts {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Arg {
+    Some(Option<u64>),
+    None,
+}
+
+impl CreateMasterEdition {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
@@ -68,79 +69,13 @@ impl CreateMetadataAccounts {
             },
         };
 
-        let name = match &self.name {
-            Some(s) => s.clone(),
-            None => match inputs.remove("name") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("name".to_string())),
+        let max_supply: Option<u64> = match self.max_supply.clone() {
+            Arg::Some(val) => val,
+            Arg::None => match inputs.remove("max_supply") {
+                Some(Value::U64(s)) => Some(s),
+                Some(Value::Empty) => None,
+                _ => return Err(Error::ArgumentNotFound("max_supply".to_string())),
             },
-        };
-
-        let symbol = match &self.symbol {
-            Some(s) => s.clone(),
-            None => match inputs.remove("symbol") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("symbol".to_string())),
-            },
-        };
-
-        let uri = match &self.uri {
-            Some(s) => s.clone(),
-            None => match inputs.remove("uri") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("uri".to_string())),
-            },
-        };
-
-        let creators = match self.creators.clone() {
-            Some(s) => s,
-            None => match inputs.remove("creators") {
-                Some(Value::NftCreators(s)) => s,
-                Some(Value::Pubkey(address)) => vec![NftCreator {
-                    address,
-                    verified: true,
-                    share: 100,
-                }],
-                _ => return Err(Error::ArgumentNotFound("creators".to_string())),
-            },
-        };
-
-        let seller_fee_basis_points = match self.seller_fee_basis_points {
-            Some(s) => s,
-            None => match inputs.remove("seller_fee_basis_points") {
-                Some(Value::U16(s)) => s,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "seller_fee_basis_points".to_string(),
-                    ))
-                }
-            },
-        };
-
-        let update_authority_is_signer = match self.update_authority_is_signer {
-            Some(s) => s,
-            None => match inputs.remove("update_authority_is_signer") {
-                Some(Value::Bool(s)) => s,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "update_authority_is_signer".to_string(),
-                    ))
-                }
-            },
-        };
-
-        let is_mutable = match self.is_mutable {
-            Some(s) => s,
-            None => match inputs.remove("is_mutable") {
-                Some(Value::Bool(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("is_mutable".to_string())),
-            },
-        };
-
-        let creators = if creators.is_empty() {
-            None
-        } else {
-            Some(creators.into_iter().map(NftCreator::into).collect())
         };
 
         let program_id = metaplex_token_metadata::id();
@@ -153,20 +88,25 @@ impl CreateMetadataAccounts {
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
 
+        let master_edition_seeds = &[
+            metaplex_token_metadata::state::PREFIX.as_bytes(),
+            &program_id.as_ref(),
+            token.as_ref(),
+            "edition".as_bytes(),
+        ];
+
+        let (master_edition_pubkey, _) =
+            Pubkey::find_program_address(master_edition_seeds, &program_id);
+
         let (minimum_balance_for_rent_exemption, instructions) = command_create_metadata_accounts(
             &ctx.client,
             metadata_pubkey,
+            master_edition_pubkey,
             token,
             token_authority,
             fee_payer.pubkey(),
             update_authority.pubkey(),
-            name,
-            symbol,
-            uri,
-            creators,
-            seller_fee_basis_points,
-            update_authority_is_signer,
-            is_mutable,
+            max_supply,
         )?;
 
         let fee_payer_pubkey = fee_payer.pubkey();
@@ -188,6 +128,7 @@ impl CreateMetadataAccounts {
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
             "token".to_owned()=>Value::Pubkey(token),
             "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey),
+            "master_edition_pubkey".to_owned()=>Value::Pubkey(master_edition_pubkey),
         };
 
         Ok(outputs)
@@ -197,40 +138,28 @@ impl CreateMetadataAccounts {
 pub fn command_create_metadata_accounts(
     rpc_client: &RpcClient,
     metadata_pubkey: Pubkey,
+    master_edition_pubkey: Pubkey,
     mint: Pubkey,
     mint_authority: Pubkey,
     payer: Pubkey,
     update_authority: Pubkey,
-    name: String,
-    symbol: String,
-    uri: String,
-    creators: Option<Vec<Creator>>,
-    seller_fee_basis_points: u16,
-    update_authority_is_signer: bool,
-    is_mutable: bool,
+    max_supply: Option<u64>,
 ) -> CommandResult {
     let minimum_balance_for_rent_exemption =
         rpc_client.get_minimum_balance_for_rent_exemption(std::mem::size_of::<
-            metaplex_token_metadata::state::Metadata,
+            metaplex_token_metadata::state::MasterEditionV2,
         >())?;
 
-    let instructions = vec![
-        metaplex_token_metadata::instruction::create_metadata_accounts(
-            metaplex_token_metadata::id(),
-            metadata_pubkey,
-            mint,
-            mint_authority,
-            payer,
-            update_authority,
-            name,
-            symbol,
-            uri,
-            creators,
-            seller_fee_basis_points,
-            update_authority_is_signer,
-            is_mutable,
-        ),
-    ];
+    let instructions = vec![metaplex_token_metadata::instruction::create_master_edition(
+        metaplex_token_metadata::id(),
+        master_edition_pubkey,
+        mint,
+        update_authority,
+        mint_authority,
+        metadata_pubkey,
+        payer,
+        max_supply,
+    )];
 
     Ok((minimum_balance_for_rent_exemption, instructions))
 }

@@ -12,18 +12,21 @@ use sunshine_core::msg::NodeId;
 use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCreator, Value};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CreateMetadataAccounts {
-    pub token: Option<NodeId>,
-    pub token_authority: Option<NodeId>,
+pub struct UpdateMetadataAccounts {
+    pub metadata_pubkey: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
-    pub name: Option<String>,
-    pub symbol: Option<String>,
-    pub uri: Option<String>,
-    pub creators: Option<Vec<NftCreator>>,
-    pub seller_fee_basis_points: Option<u16>,
-    pub update_authority_is_signer: Option<bool>,
-    pub is_mutable: Option<bool>,
+    pub new_update_authority: Option<Option<NodeId>>, // keypair
+    pub primary_sale_happened: Option<Option<bool>>,
+    pub data: Option<Option<MetadataAccountData>>,
+}
+
+pub struct MetadataAccountData {
+    pub name: String,
+    pub symbol: String,
+    pub uri: String,
+    pub seller_fee_basis_points: u16,
+    pub creators: Option<Vec<Creator>>,
 }
 
 impl CreateMetadataAccounts {
@@ -32,21 +35,12 @@ impl CreateMetadataAccounts {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let metadata_pubkey = match self.metadata_pubkey {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("metadata_pubkey") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
-            },
-        };
-
-        let token_authority = match self.token_authority {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token_authority") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token_authority".to_string())),
+                _ => return Err(Error::ArgumentNotFound("metadata_pubkey".to_string())),
             },
         };
 
@@ -65,55 +59,6 @@ impl CreateMetadataAccounts {
                 Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
                 Some(Value::Keypair(k)) => k.into(),
                 _ => return Err(Error::ArgumentNotFound("update_authority".to_string())),
-            },
-        };
-
-        let name = match &self.name {
-            Some(s) => s.clone(),
-            None => match inputs.remove("name") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("name".to_string())),
-            },
-        };
-
-        let symbol = match &self.symbol {
-            Some(s) => s.clone(),
-            None => match inputs.remove("symbol") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("symbol".to_string())),
-            },
-        };
-
-        let uri = match &self.uri {
-            Some(s) => s.clone(),
-            None => match inputs.remove("uri") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("uri".to_string())),
-            },
-        };
-
-        let creators = match self.creators.clone() {
-            Some(s) => s,
-            None => match inputs.remove("creators") {
-                Some(Value::NftCreators(s)) => s,
-                Some(Value::Pubkey(address)) => vec![NftCreator {
-                    address,
-                    verified: true,
-                    share: 100,
-                }],
-                _ => return Err(Error::ArgumentNotFound("creators".to_string())),
-            },
-        };
-
-        let seller_fee_basis_points = match self.seller_fee_basis_points {
-            Some(s) => s,
-            None => match inputs.remove("seller_fee_basis_points") {
-                Some(Value::U16(s)) => s,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "seller_fee_basis_points".to_string(),
-                    ))
-                }
             },
         };
 

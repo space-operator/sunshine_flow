@@ -1,10 +1,22 @@
+Adding NFT support to the Explorer #20009
+https://github.com/solana-labs/solana/issues/19516
+
+Register Token
+https://github.com/solana-labs/token-list#adding-new-token
+
+Example Mainnet NFT pubkey
+7C4cjqUxd38cGsemdxjyNcTxfdFeh1CCMELy4ih5ckYg
+
 https://explorer.solana.com/address/4HcVHVL45StjoqpPfydxuySEvah2Q2mbs8EZuaaptmaa?cluster=devnet
 
     https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
 
 Metadata
-example
 
+Deep Dive: Basic Single Item Auction End To End
+https://docs.metaplex.com/architecture/basic_flow
+
+example 
     https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/test/src/main.rs
 
     
@@ -46,6 +58,16 @@ https://github.com/metaplex-foundation/metaplex/tree/master/rust/nft-candy-machi
 
 5.
 6. mint token
+
+7. Withdraw Rent
+https://docs.metaplex.com/candy-machine-v2/withdraw
+
+8. Update Metadata
+https://github.com/metaplex-foundation/metaplex-program-library/blob/7ec8bec69d3eb5afc78e8f03d57bad3237204f06/token-metadata/test/src/main.rs#L470
+https://docs.metaplex.com/candy-machine-v2/update
+
+
+9. Print Copies -mint_new_edition_from_master_edition_via_token
 
 Fair Launch
 
