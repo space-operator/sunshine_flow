@@ -6,6 +6,7 @@ use crate::{error::Error, Value};
 
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
+pub mod update_metadata_accounts;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Command {

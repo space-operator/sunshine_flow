@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use commands::Command;
 use dashmap::DashMap;
-use metaplex_token_metadata::state::Creator;
+use mpl_token_metadata::state::Creator;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
@@ -24,6 +24,8 @@ use uuid::Uuid;
 pub mod commands;
 mod error;
 use error::Error;
+
+use commands::solana::nft::update_metadata_accounts::MetadataAccountData;
 
 type FlowId = GraphId;
 
@@ -279,6 +281,7 @@ pub enum Value {
     Empty,
     NodeIdOpt(Option<NodeId>),
     NftCreators(Vec<NftCreator>),
+    MetadataAccountData(MetadataAccountData),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -318,6 +321,7 @@ impl Value {
             Value::Empty => ValueKind::Empty,
             Value::NodeIdOpt(_) => ValueKind::NodeIdOpt,
             Value::NftCreators(_) => ValueKind::NftCreators,
+            Value::MetadataAccountData(_) => ValueKind::MetadataAccountData,
         }
     }
 }
@@ -360,6 +364,7 @@ pub enum ValueKind {
     Empty,
     NodeIdOpt,
     NftCreators,
+    MetadataAccountData,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

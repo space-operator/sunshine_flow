@@ -2,6 +2,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use serde_json::Value as JsonValue;
+use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
 use sunshine_core::msg::{CreateEdge, MutateKind, NodeId};
 use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
@@ -10,7 +12,9 @@ use sunshine_solana::commands::solana::get_balance::GetBalance;
 use sunshine_solana::commands::solana::nft::create_master_edition::{
     Arg as MasterEditionArg, CreateMasterEdition,
 };
-use sunshine_solana::commands::solana::nft::create_metadata_accounts::CreateMetadataAccounts;
+use sunshine_solana::commands::solana::nft::create_metadata_accounts::{
+    CreateMetadataAccounts, NftCollection, NftUseMethod, NftUses,
+};
 use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
 use sunshine_solana::commands::solana::{self, nft, Kind};
@@ -889,13 +893,19 @@ async fn main() {
                 token_authority: None,
                 fee_payer: None,        // keypair
                 update_authority: None, // keypair
-                name: Some("SUNSHINE_NFT".into()),
-                symbol: Some("SUNFT".into()),
+                name: Some("SUNSHINE_TICKET_NFT".into()),
+                symbol: Some("SUNFTT".into()),
                 uri: Some("https://api.jsonbin.io/b/61ddc9072675917a628edc21".into()),
                 creators: None,
                 seller_fee_basis_points: Some(420),
                 update_authority_is_signer: Some(true),
                 is_mutable: Some(false),
+                collection: None,
+                uses: Some(Some(NftUses {
+                    remaining: 1,
+                    total: 1,
+                    use_method: NftUseMethod::Burn,
+                })),
             },
         ))),
         false,
@@ -940,6 +950,13 @@ async fn main() {
                 serde_json::json!({
                     OUTPUT_ARG_NAME_MARKER: "signature",
                     INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "collection",
                 }),
             ),
         ],

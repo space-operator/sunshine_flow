@@ -1,23 +1,36 @@
-Adding NFT support to the Explorer #20009
-https://github.com/solana-labs/solana/issues/19516
 
-Register Token
-https://github.com/solana-labs/token-list#adding-new-token
+**NFT Standards v1.1**
+    https://docs.metaplex.com/token-metadata/v1.1.0/overview
 
-Example Mainnet NFT pubkey
-7C4cjqUxd38cGsemdxjyNcTxfdFeh1CCMELy4ih5ckYg
+**mpl_token_metadata crate**
+https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/state/index.html
 
-https://explorer.solana.com/address/4HcVHVL45StjoqpPfydxuySEvah2Q2mbs8EZuaaptmaa?cluster=devnet
 
+**collections**
+https://docs.metaplex.com/token-metadata/v1.1.0/specification#on-chain-representation-of-a-collection
+
+**follow metadata improvement progress**
+https://github.com/orgs/metaplex-foundation/projects/1/views/25
+
+
+**code location**
     https://github.com/metaplex-foundation/metaplex-program-library/tree/master/token-metadata/program
 
-Metadata
+
+**Register Token**
+https://github.com/solana-labs/token-list#adding-new-token
+
+**Example Mainnet NFT pubkey**
+7C4cjqUxd38cGsemdxjyNcTxfdFeh1CCMELy4ih5ckYg
+
+
+**Metadata**
 
 Deep Dive: Basic Single Item Auction End To End
 https://docs.metaplex.com/architecture/basic_flow
 
 example 
-    https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/test/src/main.rs
+ metaplex-program-library/blob/master/token-metadata/test/src/main.rs
 
     
     https://github.com/metaplex-foundation/metaplex/tree/master/rust/token-metadata/program/tests
@@ -28,14 +41,18 @@ example
 
     https://docs.rs/metaplex-token-metadata/0.0.1/metaplex_token_metadata/index.html
 
-NFT Standards
-    https://docs.metaplex.com/nft-standard
-
-Ticket
 
 
-last step. Burn Token
-https://docs.metaplex.com/burn-token
+
+**Third party Library to check**
+https://github.com/samuelvanderwaal/metaboss
+
+**Filed Issues**
+Closed - https://github.com/metaplex-foundation/metaplex/issues/1448
+
+**Previous Issues**
+Adding NFT support to the Explorer #20009
+https://github.com/solana-labs/solana/issues/19516
 
 
 
@@ -48,8 +65,8 @@ Master Edition
 5. Their friend creates a new mint with supply 1 and calls mint_new_edition_from_master_edition_via_token(), which creates for them new Metadata and Edition records signifying this mint as an Edition child of the master edition original.
 
 
-https://github.com/samuelvanderwaal/metaboss
-https://github.com/metaplex-foundation/metaplex/issues/1448
+
+
 https://github.com/metaplex-foundation/metaplex/tree/master/rust/nft-candy-machine-v2/src
 
 
@@ -66,8 +83,22 @@ https://docs.metaplex.com/candy-machine-v2/withdraw
 https://github.com/metaplex-foundation/metaplex-program-library/blob/7ec8bec69d3eb5afc78e8f03d57bad3237204f06/token-metadata/test/src/main.rs#L470
 https://docs.metaplex.com/candy-machine-v2/update
 
+8. Approve Use Authority
+https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/instruction/fn.approve_use_authority.html
+8. revoke utilize authority
 
 9. Print Copies -mint_new_edition_from_master_edition_via_token
+
+10. utilize
+Utilize or Use an NFT , burns the NFT and returns the lamports to the update authority if the use method is burn and its out of uses. Use Authority can be the Holder of the NFT, or a Delegated Use Authority.
+https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/instruction/fn.utilize.html
+
+
+
+11. primary sale happened
+
+12. fireball
+https://github.com/metaplex-foundation/metaplex/pull/1125
 
 Fair Launch
 

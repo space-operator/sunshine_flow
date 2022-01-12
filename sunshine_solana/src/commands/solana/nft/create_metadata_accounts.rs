@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
 use maplit::hashmap;
-use metaplex_token_metadata::state::Creator;
+use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
@@ -24,6 +24,57 @@ pub struct CreateMetadataAccounts {
     pub seller_fee_basis_points: Option<u16>,
     pub update_authority_is_signer: Option<bool>,
     pub is_mutable: Option<bool>,
+    pub collection: Option<Option<NftCollection>>,
+    pub uses: Option<Option<NftUses>>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NftCollection {
+    pub verified: bool,
+    pub key: Pubkey,
+}
+
+impl Into<Collection> for NftCollection {
+    fn into(self) -> Collection {
+        Collection {
+            verified: self.verified,
+            key: self.key,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NftUses {
+    pub use_method: NftUseMethod,
+    pub remaining: u64,
+    pub total: u64,
+}
+
+impl Into<Uses> for NftUses {
+    fn into(self) -> Uses {
+        Uses {
+            use_method: self.use_method.into(),
+            remaining: self.remaining,
+            total: self.total,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum NftUseMethod {
+    Burn,
+    Single,
+    Multiple,
+}
+
+impl Into<UseMethod> for NftUseMethod {
+    fn into(self) -> UseMethod {
+        match self {
+            NftUseMethod::Burn => UseMethod::Burn,
+            NftUseMethod::Single => UseMethod::Single,
+            NftUseMethod::Multiple => UseMethod::Multiple,
+        }
+    }
 }
 
 impl CreateMetadataAccounts {
@@ -137,16 +188,32 @@ impl CreateMetadataAccounts {
             },
         };
 
+        let collection = match self.collection.clone() {
+            Some(collection) => collection,
+            None => match inputs.remove("collection") {
+                Some(Value::Pubkey(key)) => Some(NftCollection {
+                    key,
+                    verified: true,
+                }),
+                _ => None,
+            },
+        };
+
+        let uses = match self.uses.clone() {
+            Some(uses) => uses,
+            _ => return Err(Error::ArgumentNotFound("uses".to_string())),
+        };
+
         let creators = if creators.is_empty() {
             None
         } else {
             Some(creators.into_iter().map(NftCreator::into).collect())
         };
 
-        let program_id = metaplex_token_metadata::id();
+        let program_id = mpl_token_metadata::id();
 
         let metadata_seeds = &[
-            metaplex_token_metadata::state::PREFIX.as_bytes(),
+            mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
             token.as_ref(),
         ];
@@ -167,6 +234,8 @@ impl CreateMetadataAccounts {
             seller_fee_basis_points,
             update_authority_is_signer,
             is_mutable,
+            collection.map(Into::into),
+            uses.map(Into::into),
         )?;
 
         let fee_payer_pubkey = fee_payer.pubkey();
@@ -208,15 +277,17 @@ pub fn command_create_metadata_accounts(
     seller_fee_basis_points: u16,
     update_authority_is_signer: bool,
     is_mutable: bool,
+    collection: Option<Collection>,
+    uses: Option<Uses>,
 ) -> CommandResult {
     let minimum_balance_for_rent_exemption =
         rpc_client.get_minimum_balance_for_rent_exemption(std::mem::size_of::<
-            metaplex_token_metadata::state::Metadata,
+            mpl_token_metadata::state::Metadata,
         >())?;
 
     let instructions = vec![
-        metaplex_token_metadata::instruction::create_metadata_accounts(
-            metaplex_token_metadata::id(),
+        mpl_token_metadata::instruction::create_metadata_accounts_v2(
+            mpl_token_metadata::id(),
             metadata_pubkey,
             mint,
             mint_authority,
@@ -229,6 +300,8 @@ pub fn command_create_metadata_accounts(
             seller_fee_basis_points,
             update_authority_is_signer,
             is_mutable,
+            collection,
+            uses,
         ),
     ];
 

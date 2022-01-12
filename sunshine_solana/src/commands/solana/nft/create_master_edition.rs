@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
 use maplit::hashmap;
-use metaplex_token_metadata::state::Creator;
+use mpl_token_metadata::state::Creator;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signer::Signer};
@@ -78,10 +78,10 @@ impl CreateMasterEdition {
             },
         };
 
-        let program_id = metaplex_token_metadata::id();
+        let program_id = mpl_token_metadata::id();
 
         let metadata_seeds = &[
-            metaplex_token_metadata::state::PREFIX.as_bytes(),
+            mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
             token.as_ref(),
         ];
@@ -89,7 +89,7 @@ impl CreateMasterEdition {
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
 
         let master_edition_seeds = &[
-            metaplex_token_metadata::state::PREFIX.as_bytes(),
+            mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
             token.as_ref(),
             "edition".as_bytes(),
@@ -98,7 +98,7 @@ impl CreateMasterEdition {
         let (master_edition_pubkey, _) =
             Pubkey::find_program_address(master_edition_seeds, &program_id);
 
-        let (minimum_balance_for_rent_exemption, instructions) = command_create_metadata_accounts(
+        let (minimum_balance_for_rent_exemption, instructions) = command_create_master_edition(
             &ctx.client,
             metadata_pubkey,
             master_edition_pubkey,
@@ -135,7 +135,7 @@ impl CreateMasterEdition {
     }
 }
 
-pub fn command_create_metadata_accounts(
+pub fn command_create_master_edition(
     rpc_client: &RpcClient,
     metadata_pubkey: Pubkey,
     master_edition_pubkey: Pubkey,
@@ -147,11 +147,11 @@ pub fn command_create_metadata_accounts(
 ) -> CommandResult {
     let minimum_balance_for_rent_exemption =
         rpc_client.get_minimum_balance_for_rent_exemption(std::mem::size_of::<
-            metaplex_token_metadata::state::MasterEditionV2,
+            mpl_token_metadata::state::MasterEditionV2,
         >())?;
 
-    let instructions = vec![metaplex_token_metadata::instruction::create_master_edition(
-        metaplex_token_metadata::id(),
+    let instructions = vec![mpl_token_metadata::instruction::create_master_edition_v3(
+        mpl_token_metadata::id(),
         master_edition_pubkey,
         mint,
         update_authority,
