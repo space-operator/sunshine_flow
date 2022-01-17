@@ -902,9 +902,9 @@ async fn main() {
                 is_mutable: Some(false),
                 collection: None,
                 uses: Some(Some(NftUses {
-                    remaining: 1,
-                    total: 1,
-                    use_method: NftUseMethod::Burn,
+                    remaining: 6,
+                    total: 6,
+                    use_method: NftUseMethod::Multiple,
                 })),
             },
         ))),
@@ -972,7 +972,7 @@ async fn main() {
                 fee_payer: None,        // keypair
                 update_authority: None, // keypair
                 is_mutable: Some(false),
-                max_supply: MasterEditionArg::Some(Some(1)),
+                max_supply: MasterEditionArg::Some(Some(5)),
             },
         ))),
         false,
@@ -1035,5 +1035,5 @@ async fn main() {
         .await
         .unwrap();
 
-    tokio::time::sleep(Duration::from_secs(100)).await;
+    tokio::time::sleep(Duration::from_secs(10000)).await;
 }

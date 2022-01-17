@@ -1,4 +1,16 @@
 
+master edition
+    prints
+    utilize
+
+master
+collection
+primary sale
+
+fee calculator deprecated
+/home/amir/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.9.4/src/fee_calculator.rs
+
+
 **NFT Standards v1.1**
     https://docs.metaplex.com/token-metadata/v1.1.0/overview
 
@@ -85,13 +97,18 @@ https://docs.metaplex.com/candy-machine-v2/update
 
 8. Approve Use Authority
 https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/instruction/fn.approve_use_authority.html
+
 8. revoke utilize authority
 
 9. Print Copies -mint_new_edition_from_master_edition_via_token
 
 10. utilize
 Utilize or Use an NFT , burns the NFT and returns the lamports to the update authority if the use method is burn and its out of uses. Use Authority can be the Holder of the NFT, or a Delegated Use Authority.
-https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/instruction/fn.utilize.html
+https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/program/src/instruction.rs#L737
+
+https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/program/src/processor.rs#L870
+
+metaplex-program-library/mpl_token_metadata/instruction/fn.utilize.html
 
 
 

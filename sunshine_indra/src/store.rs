@@ -259,6 +259,8 @@ impl Datastore for DB {
         Ok(node)
     }
 
+    // TODO update changed property fields only
+    // https://github.com/serde-rs/json/issues/377
     async fn update_node(
         &self,
         (node_id, properties): (NodeId, Properties),
