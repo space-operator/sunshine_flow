@@ -1035,5 +1035,5 @@ async fn main() {
         .await
         .unwrap();
 
-    tokio::time::sleep(Duration::from_secs(10000)).await;
+    tokio::time::sleep(Duration::from_secs(1000)).await;
 }

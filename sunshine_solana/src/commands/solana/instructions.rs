@@ -27,13 +27,13 @@ pub(crate) fn execute(
         Message::new(&instructions, fee_payer)
     };*/
 
-    let message = Message::new(instructions, Some(fee_payer));
+    let recent_blockhash = client.get_latest_blockhash()?;
 
-    let (recent_blockhash, fee_calculator) = client.get_recent_blockhash()?;
+    let message = Message::new_with_blockhash(instructions, Some(fee_payer), &recent_blockhash);
 
     let balance = client.get_balance(fee_payer)?;
 
-    let needed = minimum_balance_for_rent_exemption + fee_calculator.calculate_fee(&message);
+    let needed = minimum_balance_for_rent_exemption + client.get_fee_for_message(&message)?;
 
     if balance < needed {
         panic!("insufficient balance: have={}; needed={};", balance, needed);
@@ -47,3 +47,53 @@ pub(crate) fn execute(
 
     Ok(signature)
 }
+
+// #[allow(deprecated)]
+// pub fn get_fee_for_message(&self, message: &Message) -> ClientResult<u64> {
+//     if self.get_node_version()? < semver::Version::new(1, 9, 0) {
+//         let fee_calculator = self
+//             .get_fee_calculator_for_blockhash(&message.recent_blockhash)?
+//             .ok_or_else(|| ClientErrorKind::Custom("Invalid blockhash".to_string()))?;
+//         Ok(fee_calculator
+//             .lamports_per_signature
+//             .saturating_mul(message.header.num_required_signatures as u64))
+//     } else {
+//         let serialized_encoded =
+//             serialize_and_encode::<Message>(message, UiTransactionEncoding::Base64)?;
+//         let result = self.send::<Response<Option<u64>>>(
+//             RpcRequest::GetFeeForMessage,
+//             json!([serialized_encoded, self.commitment()]),
+//         )?;
+//         result
+//             .value
+//             .ok_or_else(|| ClientErrorKind::Custom("Invalid blockhash".to_string()).into())
+//     }
+// }
+
+// pub fn get_new_latest_blockhash(&self, blockhash: &Hash) -> ClientResult<Hash> {
+//     let mut num_retries = 0;
+//     let start = Instant::now();
+//     while start.elapsed().as_secs() < 5 {
+//         if let Ok(new_blockhash) = self.get_latest_blockhash() {
+//             if new_blockhash != *blockhash {
+//                 return Ok(new_blockhash);
+//             }
+//         }
+//         debug!("Got same blockhash ({:?}), will retry...", blockhash);
+
+//         // Retry ~twice during a slot
+//         sleep(Duration::from_millis(DEFAULT_MS_PER_SLOT / 2));
+//         num_retries += 1;
+//     }
+//     Err(RpcError::ForUser(format!(
+//         "Unable to get new blockhash after {}ms (retried {} times), stuck at {}",
+//         start.elapsed().as_millis(),
+//         num_retries,
+//         blockhash
+//     ))
+//     .into())
+// }
+
+// pub fn get_transport_stats(&self) -> RpcTransportStats {
+//     self.sender.get_transport_stats()
+// }
