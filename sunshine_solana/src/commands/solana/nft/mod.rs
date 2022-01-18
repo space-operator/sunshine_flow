@@ -8,6 +8,7 @@ pub mod create_master_edition;
 pub mod create_metadata_accounts;
 pub mod update_metadata_accounts;
 pub mod utilize;
+pub mod approve_use_authority;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Command {
@@ -15,6 +16,7 @@ pub enum Command {
     CreateMasterEdition(create_master_edition::CreateMasterEdition),
     UpdateMetadataAccounts(update_metadata_accounts::UpdateMetadataAccounts),
     Utilize(utilize::Utilize),
+    ApproveUseAuthority(approve_use_authority::ApproveUseAuthority),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -23,6 +25,7 @@ pub enum CommandKind {
     CreateMasterEdition,
     UpdateMetadataAccount,
     Utilize,
+    ApproveUseAuthority,
 }
 
 impl Command {
@@ -36,6 +39,7 @@ impl Command {
             Command::CreateMasterEdition(k) => k.run(ctx, inputs).await,
             Command::UpdateMetadataAccounts(k) => k.run(ctx, inputs).await,
             Command::Utilize(k) => k.run(ctx, inputs).await,
+            Command::ApproveUseAuthority(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -45,6 +49,7 @@ impl Command {
             Command::CreateMasterEdition(_) => CommandKind::CreateMasterEdition,
             Command::UpdateMetadataAccounts(_) => CommandKind::UpdateMetadataAccount,
             Command::Utilize(_) => CommandKind::Utilize,
+            Command::ApproveUseAuthority(_) => CommandKind::ApproveUseAuthority,
         }
     }
 }

@@ -66,6 +66,7 @@ impl GenerateKeypair {
         let mut outputs = hashmap! {
             "pubkey".to_owned() => Value::Pubkey(keypair.pubkey()),
             "keypair".to_owned() => Value::Keypair(keypair.into()),
+            "empty".to_owned() => Value::Empty,
         };
 
         if let Some(node_id) = node_id {

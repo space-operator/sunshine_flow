@@ -9,12 +9,17 @@ use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
 use sunshine_solana::commands::simple;
 use sunshine_solana::commands::solana::get_balance::GetBalance;
+use sunshine_solana::commands::solana::nft::approve_use_authority::ApproveUseAuthority;
 use sunshine_solana::commands::solana::nft::create_master_edition::{
     Arg as MasterEditionArg, CreateMasterEdition,
 };
 use sunshine_solana::commands::solana::nft::create_metadata_accounts::{
     CreateMetadataAccounts, NftCollection, NftUseMethod, NftUses,
 };
+use sunshine_solana::commands::solana::nft::update_metadata_accounts::{
+    MetadataAccountData, UpdateMetadataAccounts,
+};
+use sunshine_solana::commands::solana::nft::utilize::Utilize;
 use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
 use sunshine_solana::commands::solana::{self, nft, Kind};
@@ -27,6 +32,7 @@ use sunshine_solana::commands::solana::create_account::CreateAccount;
 use sunshine_solana::commands::solana::create_token::CreateToken;
 use sunshine_solana::commands::solana::generate_keypair::GenerateKeypair;
 use sunshine_solana::commands::solana::mint_token::MintToken;
+
 /*
 #[tokio::main]
 async fn main() {
@@ -899,7 +905,7 @@ async fn main() {
                 creators: None,
                 seller_fee_basis_points: Some(420),
                 update_authority_is_signer: Some(true),
-                is_mutable: Some(false),
+                is_mutable: Some(true),
                 collection: None,
                 uses: Some(Some(NftUses {
                     remaining: 6,
@@ -1029,6 +1035,228 @@ async fn main() {
         )],
     )
     .await;
+
+    let node12 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::UpdateMetadataAccounts(
+            UpdateMetadataAccounts {
+                token: None,
+                fee_payer: None,        // keypair
+                update_authority: None, // keypair
+                new_update_authority: None,
+                data: Some(Some(MetadataAccountData {
+                    name: "SUNSHINE_TICKET_NFT2".into(),
+                    symbol: "SUNFTT".into(),
+                    uri: "https://api.jsonbin.io/b/61ddc9072675917a628edc21".into(),
+                    creators: None,
+                    seller_fee_basis_points: 425,
+                    collection: None,
+                    uses: Some(NftUses {
+                        remaining: 3,
+                        total: 3,
+                        use_method: NftUseMethod::Multiple,
+                    }),
+                })),
+                primary_sale_happened: Some(Some(true)),
+                is_mutable: Some(Some(false)),
+            },
+        ))),
+        false,
+        vec![
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "update_authority",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    INPUT_ARG_NAME_MARKER: "new_update_authority",
+                }),
+            ),
+            (
+                node11,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "signature",
+                    INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node17 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
+            seed_phrase: solana::generate_keypair::Arg::Some(None),
+            passphrase: Some("qweqwew".into()),
+            save: solana::generate_keypair::Arg::Some(None),
+        })),
+        true,
+        vec![],
+    )
+    .await;
+
+    let node18 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::ApproveUseAuthority(
+            ApproveUseAuthority {
+                user: None,
+                owner: None,
+                fee_payer: None,
+                token_account: None,
+                token: None,
+                burner: None,
+                number_of_uses: Some(2),
+            },
+        ))),
+        false,
+        vec![
+            (
+                node17,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "pubkey",
+                    INPUT_ARG_NAME_MARKER: "user",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "owner",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node9,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "account",
+                    INPUT_ARG_NAME_MARKER: "token_account",
+                }),
+            ),
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node9,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "account",
+                    INPUT_ARG_NAME_MARKER: "burner",
+                }),
+            ),
+            (
+                node12,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "signature",
+                    INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    /*
+    let node16 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::Utilize(Utilize {
+            token_account: None,
+            token: None,
+            use_authority_record_pda: None,
+            use_authority: None,
+            fee_payer: None,
+            owner: None,
+            burner: None,
+            number_of_uses: Some(2),
+        }))),
+        false,
+        vec![
+            (
+                node9,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "account",
+                    INPUT_ARG_NAME_MARKER: "token_account",
+                }),
+            ),
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "empty",
+                    INPUT_ARG_NAME_MARKER: "use_authority_record_pda",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "use_authority",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "owner",
+                }),
+            ),
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "empty",
+                    INPUT_ARG_NAME_MARKER: "burner",
+                }),
+            ),
+            (
+                node12,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "signature",
+                    INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+        ],
+    )
+    .await;
+    */
 
     flow_context
         .deploy_flow(Duration::from_secs(100000000000), flow_graph_id)

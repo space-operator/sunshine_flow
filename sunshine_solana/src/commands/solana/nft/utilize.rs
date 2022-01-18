@@ -137,7 +137,6 @@ impl Utilize {
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
 
         let (minimum_balance_for_rent_exemption, instructions) = command_utilize(
-            &ctx.client,
             metadata_pubkey,
             token_account,
             token,
@@ -172,7 +171,6 @@ impl Utilize {
 }
 
 pub fn command_utilize(
-    rpc_client: &RpcClient,
     metadata_pubkey: Pubkey,
     token_account: Pubkey,
     mint: Pubkey,

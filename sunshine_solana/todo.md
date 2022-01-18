@@ -4,13 +4,14 @@ master edition
     utilize
 
 master
-collection
 primary sale
 
-fee calculator deprecated
-/home/amir/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.9.4/src/fee_calculator.rs
-https://github.com/solana-labs/solana/blob/b8837c04ec3976c9c16d028fbee86f87823fb97f/client/src/blockhash_query.rs
+collection
 
+
+
+**link to devnet version on-chain**
+https://explorer.solana.com/block/107099952?cluster=devnet
 
 **NFT Standards v1.1**
     https://docs.metaplex.com/token-metadata/v1.1.0/overview
@@ -63,10 +64,19 @@ https://github.com/samuelvanderwaal/metaboss
 **Filed Issues**
 Closed - https://github.com/metaplex-foundation/metaplex/issues/1448
 
+
+https://github.com/metaplex-foundation/metaplex-program-library/blob/c10efda38f10fe4998493036128d04bd9d9bcfcd/token-metadata/program/src/processor.rs#L925
+https://github.com/metaplex-foundation/metaplex-program-library/blob/master/token-metadata/program/src/utils.rs#L797
+
+
 **Previous Issues**
 Adding NFT support to the Explorer #20009
 https://github.com/solana-labs/solana/issues/19516
 
+
+resolved - fee calculator deprecated
+/home/amir/.cargo/registry/src/github.com-1ecc6299db9ec823/solana-program-1.9.4/src/fee_calculator.rs
+https://github.com/solana-labs/solana/blob/b8837c04ec3976c9c16d028fbee86f87823fb97f/client/src/blockhash_query.rs
 
 
 Master Edition
@@ -115,6 +125,10 @@ metaplex-program-library/mpl_token_metadata/instruction/fn.utilize.html
 
 11. primary sale happened
 
+
+reservation list?
+https://metaplex-foundation.github.io/metaplex-program-library/mpl_token_metadata/state/trait.ReservationList.html
+
 12. fireball
 https://github.com/metaplex-foundation/metaplex/pull/1125
 
@@ -124,7 +138,7 @@ Create Store
 https://github.com/metaplex-foundation/metaplex/blob/master/rust/metaplex/program/tests/create_store.rs
 
 
-
+mint_edition_from_master_edition_via_vault_proxy
 
 single flat error type> error handling
 reading arguments

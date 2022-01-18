@@ -15,7 +15,6 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UpdateMetadataAccounts {
     pub token: Option<NodeId>,
-    pub metadata_pubkey: Option<NodeId>,
     pub fee_payer: Option<NodeId>,                    // keypair
     pub update_authority: Option<NodeId>,             // keypair
     pub new_update_authority: Option<Option<NodeId>>, // keypair
@@ -63,15 +62,6 @@ impl UpdateMetadataAccounts {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
-            },
-        };
-
-        let metadata_pubkey = match self.metadata_pubkey {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("metadata_pubkey") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("metadata_pubkey".to_string())),
             },
         };
 
