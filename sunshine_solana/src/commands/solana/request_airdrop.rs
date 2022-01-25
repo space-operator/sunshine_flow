@@ -38,9 +38,19 @@ impl RequestAirdrop {
             },
         };
 
+        let balance_before = ctx.client.get_balance(&pubkey)?;
+
         let signature = ctx.client.request_airdrop(&pubkey, amount)?;
 
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        loop {
+            tokio::time::sleep(Duration::from_secs(3)).await;
+
+            let balance = ctx.client.get_balance(&pubkey)?;
+
+            if balance > balance_before {
+                break;
+            }
+        }
 
         let succeeded = ctx.client.confirm_transaction(&signature)?;
 

@@ -15,7 +15,7 @@ use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
 use sunshine_core::store::Datastore;
 
 use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as Sender};
-use tokio::sync::oneshot;
+use tokio::sync::watch;
 
 use parse_display::Display as ParseDisplay;
 use tokio::time::Duration;
@@ -39,7 +39,7 @@ pub const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
 pub const CTX_MARKER: &str = "CTX_MARKER";
 
 pub struct FlowContext {
-    deployed: DashMap<FlowId, oneshot::Sender<()>>,
+    deployed: DashMap<FlowId, watch::Sender<u8>>,
     db: Arc<dyn Datastore>,
 }
 
@@ -56,7 +56,7 @@ impl FlowContext {
             .deployed
             .remove(&flow_id)
             .ok_or(Error::FlowDoesntExist)?;
-        stop_signal.send(()).unwrap();
+        stop_signal.send(5).unwrap();
         Ok(())
     }
 
@@ -180,86 +180,128 @@ impl FlowContext {
         Ok(Flow { start_nodes, nodes })
     }
 
-    pub async fn deploy_flow(&self, period: Duration, flow_id: FlowId) -> Result<(), Error> {
+    pub async fn deploy_flow(&self, schedule: Schedule, flow_id: FlowId) -> Result<(), Error> {
+        if self.deployed.contains_key(&flow_id) {
+            return Err(Error::FlowAlreadyDeployed);
+        }
+
+        let (send_stop_signal, stop_signal) = watch::channel(1u8);
+
+        let res = match schedule {
+            Schedule::Once => {
+                Self::run_flow(self.db.clone(), flow_id, stop_signal).await;
+            }
+            Schedule::Interval(period) => {
+                self.start_flow_with_interval(period, flow_id, stop_signal)
+                    .await?
+            }
+        };
+
+        self.deployed.insert(flow_id, send_stop_signal);
+
+        Ok(res)
+    }
+
+    async fn start_flow_with_interval(
+        &self,
+        period: Duration,
+        flow_id: FlowId,
+        mut stop_signal: watch::Receiver<u8>,
+    ) -> Result<(), Error> {
         let mut interval = tokio::time::interval(period);
 
         let db = self.db.clone();
 
+        let stop_signal_c = stop_signal.clone();
+
         let interval_fut = async move {
             loop {
                 interval.tick().await;
-
-                let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
-                    Ok(flow) => flow,
-                    Err(e) => {
-                        eprintln!("failed to read flow: {}", e);
-                        return;
-                    }
-                };
-                for (_, node) in nodes {
-                    tokio::spawn(async move {
-                        let mut inputs = HashMap::new();
-
-                        println!("{:?} WAITING FOR INPUTS", node.cmd.kind());
-
-                        for (name, mut rx) in node.inputs {
-                            let input = match rx.recv().await {
-                                Some(input) => input,
-                                None => {
-                                    eprintln!("can't receive input quitting");
-                                    return;
-                                }
-                            };
-                            inputs.insert(name, input);
-                        }
-
-                        println!("executing {:?}", node.cmd.kind());
-                        println!("{:#?}", &inputs);
-
-                        let outputs = match run_command(&node.cmd, inputs.clone()).await {
-                            Ok(outputs) => outputs,
-                            Err(e) => {
-                                eprintln!("failed to run command: {:#?}", e);
-                                return;
-                            }
-                        };
-
-                        println!("executed {:?}", node.cmd.kind());
-
-                        for (name, txs) in node.outputs.into_iter() {
-                            let val = match outputs.get(&name) {
-                                Some(val) => val.clone(),
-                                None => {
-                                    eprintln!("output with name {} not found", name);
-                                    return;
-                                }
-                            };
-                            for tx in txs {
-                                tx.send(val.clone()).unwrap();
-                            }
-                        }
-                    });
-                }
-
-                for node in start_nodes {
-                    node.send(Value::Empty).unwrap();
-                }
+                Self::run_flow(db.clone(), flow_id, stop_signal_c.clone()).await;
             }
         };
 
-        let (send_stop_signal, stop_signal) = oneshot::channel();
-
-        tokio::spawn(async {
+        tokio::spawn(async move {
             tokio::select! {
                 _ = interval_fut => (),
-                _ = stop_signal => (),
+                _ = stop_signal.changed() => (),
             }
         });
 
-        self.deployed.insert(flow_id, send_stop_signal);
-
         Ok(())
     }
+
+    async fn run_flow(db: Arc<dyn Datastore>, flow_id: FlowId, stop_signal: watch::Receiver<u8>) {
+        let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
+            Ok(flow) => flow,
+            Err(e) => {
+                eprintln!("failed to read flow: {}", e);
+                return;
+            }
+        };
+        for (_, node) in nodes {
+            let mut stop_signal = stop_signal.clone();
+
+            let cmd_fut = async move {
+                let mut inputs = HashMap::new();
+
+                println!("{:?} WAITING FOR INPUTS", node.cmd.kind());
+
+                for (name, mut rx) in node.inputs {
+                    let input = match rx.recv().await {
+                        Some(input) => input,
+                        None => {
+                            eprintln!("can't receive input quitting");
+                            return;
+                        }
+                    };
+                    inputs.insert(name, input);
+                }
+
+                println!("executing {:?}", node.cmd.kind());
+                println!("{:#?}", &inputs);
+
+                let outputs = match run_command(&node.cmd, inputs.clone()).await {
+                    Ok(outputs) => outputs,
+                    Err(e) => {
+                        eprintln!("failed to run command: {:#?}", e);
+                        return;
+                    }
+                };
+
+                println!("executed {:?}", node.cmd.kind());
+
+                for (name, txs) in node.outputs.into_iter() {
+                    let val = match outputs.get(&name) {
+                        Some(val) => val.clone(),
+                        None => {
+                            eprintln!("output with name {} not found", name);
+                            return;
+                        }
+                    };
+                    for tx in txs {
+                        tx.send(val.clone()).unwrap();
+                    }
+                }
+            };
+
+            tokio::spawn(async move {
+                tokio::select! {
+                    _ = cmd_fut => (),
+                    _ = stop_signal.changed() => (),
+                }
+            });
+        }
+
+        for node in start_nodes {
+            node.send(Value::Empty).unwrap();
+        }
+    }
+}
+
+pub enum Schedule {
+    Once,
+    Interval(Duration),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

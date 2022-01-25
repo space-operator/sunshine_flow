@@ -4,11 +4,12 @@ use std::{collections::HashMap, sync::Arc};
 use super::Ctx;
 use crate::{error::Error, Value};
 
+pub mod approve_use_authority;
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
+pub mod get_left_uses;
 pub mod update_metadata_accounts;
 pub mod utilize;
-pub mod approve_use_authority;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Command {
@@ -17,6 +18,7 @@ pub enum Command {
     UpdateMetadataAccounts(update_metadata_accounts::UpdateMetadataAccounts),
     Utilize(utilize::Utilize),
     ApproveUseAuthority(approve_use_authority::ApproveUseAuthority),
+    GetLeftUses(get_left_uses::GetLeftUses),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -26,6 +28,7 @@ pub enum CommandKind {
     UpdateMetadataAccount,
     Utilize,
     ApproveUseAuthority,
+    GetLeftUses,
 }
 
 impl Command {
@@ -40,6 +43,7 @@ impl Command {
             Command::UpdateMetadataAccounts(k) => k.run(ctx, inputs).await,
             Command::Utilize(k) => k.run(ctx, inputs).await,
             Command::ApproveUseAuthority(k) => k.run(ctx, inputs).await,
+            Command::GetLeftUses(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -50,6 +54,7 @@ impl Command {
             Command::UpdateMetadataAccounts(_) => CommandKind::UpdateMetadataAccount,
             Command::Utilize(_) => CommandKind::Utilize,
             Command::ApproveUseAuthority(_) => CommandKind::ApproveUseAuthority,
+            Command::GetLeftUses(_) => CommandKind::GetLeftUses,
         }
     }
 }

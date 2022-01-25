@@ -16,6 +16,7 @@ use sunshine_solana::commands::solana::nft::create_master_edition::{
 use sunshine_solana::commands::solana::nft::create_metadata_accounts::{
     CreateMetadataAccounts, NftCollection, NftUseMethod, NftUses,
 };
+use sunshine_solana::commands::solana::nft::get_left_uses::GetLeftUses;
 use sunshine_solana::commands::solana::nft::update_metadata_accounts::{
     MetadataAccountData, UpdateMetadataAccounts,
 };
@@ -24,7 +25,7 @@ use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
 use sunshine_solana::commands::solana::{self, nft, Kind};
 use sunshine_solana::{
-    commands, FlowContext, NftCreator, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER,
+    commands, FlowContext, NftCreator, Schedule, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER,
     INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
 };
 
@@ -959,9 +960,9 @@ async fn main() {
                 }),
             ),
             (
-                node4,
+                node0,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "token",
+                    OUTPUT_ARG_NAME_MARKER: "empty",
                     INPUT_ARG_NAME_MARKER: "collection",
                 }),
             ),
@@ -1182,7 +1183,45 @@ async fn main() {
     )
     .await;
 
-    /*
+    let node19 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::GetLeftUses(GetLeftUses {
+            token: None,
+        }))),
+        false,
+        vec![
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node18,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "signature",
+                    INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node20 = add_node(
+        db.clone(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node19,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "left_uses",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
+
     let node16 = add_solana_node(
         db.clone(),
         commands::Config::Solana(Kind::Nft(nft::Command::Utilize(Utilize {
@@ -1212,14 +1251,14 @@ async fn main() {
                 }),
             ),
             (
-                node0,
+                node18,
                 serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "empty",
+                    OUTPUT_ARG_NAME_MARKER: "use_authority_record_pubkey",
                     INPUT_ARG_NAME_MARKER: "use_authority_record_pda",
                 }),
             ),
             (
-                node0,
+                node17,
                 serde_json::json!({
                     OUTPUT_ARG_NAME_MARKER: "keypair",
                     INPUT_ARG_NAME_MARKER: "use_authority",
@@ -1247,7 +1286,32 @@ async fn main() {
                 }),
             ),
             (
-                node12,
+                node19,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "left_uses",
+                    INPUT_ARG_NAME_MARKER: "left_uses",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node21 = add_solana_node(
+        db.clone(),
+        commands::Config::Solana(Kind::Nft(nft::Command::GetLeftUses(GetLeftUses {
+            token: None,
+        }))),
+        false,
+        vec![
+            (
+                node4,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "token",
+                    INPUT_ARG_NAME_MARKER: "token",
+                }),
+            ),
+            (
+                node16,
                 serde_json::json!({
                     OUTPUT_ARG_NAME_MARKER: "signature",
                     INPUT_ARG_NAME_MARKER: "signature",
@@ -1256,12 +1320,30 @@ async fn main() {
         ],
     )
     .await;
-    */
+
+    let node22 = add_node(
+        db.clone(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node21,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "left_uses",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
 
     flow_context
-        .deploy_flow(Duration::from_secs(100000000000), flow_graph_id)
+        .deploy_flow(Schedule::Once, flow_graph_id)
         .await
         .unwrap();
+
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(50000000000)).await;
+        flow_context.undeploy_flow(flow_graph_id).unwrap();
+    });
 
     tokio::time::sleep(Duration::from_secs(1000)).await;
 }

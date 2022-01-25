@@ -47,6 +47,16 @@ pub enum Error {
     ValueIntoError(ValueKind, String),
     #[error("solana airdrop failed")]
     AirdropFailed,
+    #[error("io error: {0}")]
+    IoError(std::io::Error),
+    #[error("flow is already deployed")]
+    FlowAlreadyDeployed,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(err: std::io::Error) -> Error {
+        Error::IoError(err)
+    }
 }
 
 impl From<ParsePubkeyError> for Error {
