@@ -25,6 +25,7 @@ uuid = { version = "0.8", features = ["v4"] }
 parse-display = "0.5.3"
 mpl-token-metadata = "1.1.0"
 borsh = "0.9.1"
+chrono = "0.4.19"
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }

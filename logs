@@ -1,0 +1,1451 @@
+Pubkey(
+    Hd1QqNwWunpPio1iezSD8hN981g3yaHPiheaftwr2ipx,
+)
+Graph {
+    nodes: [
+        Node {
+            node_id: f8faf7e8-7ee1-11ec-8070-000000000000,
+            properties: {
+                "1643226955231": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226955234": String(
+                    "starting to execute with inputs: {\n    \"STARTER_INPUT_MARKER\": Empty,\n}",
+                ),
+                "1643226955457": String(
+                    "finished execution, writing outputs",
+                ),
+                "kind": String(
+                    "Solana(\n    GenerateKeypair,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "GenerateKeypair": Object({
+                                "passphrase": String(
+                                    "123123",
+                                ),
+                                "save": Object({
+                                    "Some": Null,
+                                }),
+                                "seed_phrase": Object({
+                                    "Some": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                    "START_NODE_MARKER": Bool(
+                        true,
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f8ff2f05-7ee1-11ec-8096-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fb1b3a-7ee1-11ec-8072-000000000000,
+                },
+                Edge {
+                    id: f8ff480b-7ee1-11ec-8097-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fb30a8-7ee1-11ec-8074-000000000000,
+                },
+                Edge {
+                    id: f8ff781e-7ee1-11ec-8098-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+                Edge {
+                    id: f8ffbaff-7ee1-11ec-8099-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+                Edge {
+                    id: f8ffd290-7ee1-11ec-809a-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f8ffeb13-7ee1-11ec-809b-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f9000221-7ee1-11ec-809c-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f90019b4-7ee1-11ec-809d-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f900325b-7ee1-11ec-809e-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f9004e40-7ee1-11ec-809f-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900674b-7ee1-11ec-80a0-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900a712-7ee1-11ec-80a1-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900dcb1-7ee1-11ec-80a2-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900f5af-7ee1-11ec-80a3-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f90108bd-7ee1-11ec-80a4-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f9011b64-7ee1-11ec-80a5-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f9012e22-7ee1-11ec-80a6-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f9014002-7ee1-11ec-80a7-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f90152fb-7ee1-11ec-80a8-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f901652d-7ee1-11ec-80a9-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9019110-7ee1-11ec-80aa-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f901c77b-7ee1-11ec-80ab-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f901d9db-7ee1-11ec-80ac-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f901ed41-7ee1-11ec-80ad-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fb0149-7ee1-11ec-8071-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8faf7e8-7ee1-11ec-8070-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fb1b3a-7ee1-11ec-8072-000000000000,
+            properties: {
+                "1643226955238": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226955461": String(
+                    "starting to execute with inputs: {\n    \"pubkey\": Pubkey(\n        Hd1QqNwWunpPio1iezSD8hN981g3yaHPiheaftwr2ipx,\n    ),\n}",
+                ),
+                "kind": String(
+                    "Solana(\n    RequestAirdrop,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "RequestAirdrop": Object({
+                                "amount": Number(
+                                    50000000,
+                                ),
+                                "pubkey": Null,
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f90200fa-7ee1-11ec-80ae-000000000000,
+                    from: f8fb1b3a-7ee1-11ec-8072-000000000000,
+                    to: f8fb7692-7ee1-11ec-8076-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fb229d-7ee1-11ec-8073-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fb1b3a-7ee1-11ec-8072-000000000000,
+                },
+                Edge {
+                    id: f8ff2f05-7ee1-11ec-8096-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fb1b3a-7ee1-11ec-8072-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fb30a8-7ee1-11ec-8074-000000000000,
+            properties: {
+                "1643226955235": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226955461": String(
+                    "starting to execute with inputs: {\n    \"print\": Pubkey(\n        Hd1QqNwWunpPio1iezSD8hN981g3yaHPiheaftwr2ipx,\n    ),\n}",
+                ),
+                "1643226955463": String(
+                    "finished execution, writing outputs",
+                ),
+                "kind": String(
+                    "Simple(\n    Print,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Simple": String(
+                            "Print",
+                        ),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [],
+            inbound_edges: [
+                Edge {
+                    id: f8fb45b0-7ee1-11ec-8075-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fb30a8-7ee1-11ec-8074-000000000000,
+                },
+                Edge {
+                    id: f8ff480b-7ee1-11ec-8097-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fb30a8-7ee1-11ec-8074-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fb7692-7ee1-11ec-8076-000000000000,
+            properties: {
+                "1643226955228": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    GenerateKeypair,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "GenerateKeypair": Object({
+                                "passphrase": String(
+                                    "asdasdas",
+                                ),
+                                "save": Object({
+                                    "Some": Null,
+                                }),
+                                "seed_phrase": Object({
+                                    "Some": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9021abf-7ee1-11ec-80af-000000000000,
+                    from: f8fb7692-7ee1-11ec-8076-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fb87b5-7ee1-11ec-8077-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fb7692-7ee1-11ec-8076-000000000000,
+                },
+                Edge {
+                    id: f90200fa-7ee1-11ec-80ae-000000000000,
+                    from: f8fb1b3a-7ee1-11ec-8072-000000000000,
+                    to: f8fb7692-7ee1-11ec-8076-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fbc0c7-7ee1-11ec-8078-000000000000,
+            properties: {
+                "1643226955229": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    CreateToken,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "CreateToken": Object({
+                                "authority": Null,
+                                "decimals": Number(
+                                    0,
+                                ),
+                                "fee_payer": Null,
+                                "memo": String(
+                                    "SUNSHINE NFT MINTING ACCOUNT",
+                                ),
+                                "token": Null,
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9024039-7ee1-11ec-80b0-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f9025ad7-7ee1-11ec-80b1-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f9028d95-7ee1-11ec-80b2-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f902bd75-7ee1-11ec-80b3-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f903034e-7ee1-11ec-80b4-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f9031b6c-7ee1-11ec-80b5-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9033310-7ee1-11ec-80b6-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fe133a-7ee1-11ec-808c-000000000000,
+                },
+                Edge {
+                    id: f9034b26-7ee1-11ec-80b7-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f9037b8f-7ee1-11ec-80b8-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fec40d-7ee1-11ec-8092-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fbc843-7ee1-11ec-8079-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+                Edge {
+                    id: f8ff781e-7ee1-11ec-8098-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+                Edge {
+                    id: f8ffbaff-7ee1-11ec-8099-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+                Edge {
+                    id: f9021abf-7ee1-11ec-80af-000000000000,
+                    from: f8fb7692-7ee1-11ec-8076-000000000000,
+                    to: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fbdc9c-7ee1-11ec-807a-000000000000,
+            properties: {
+                "1643226955235": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226955237": String(
+                    "starting to execute with inputs: {\n    \"STARTER_INPUT_MARKER\": Empty,\n}",
+                ),
+                "1643226955504": String(
+                    "finished execution, writing outputs",
+                ),
+                "kind": String(
+                    "Solana(\n    GenerateKeypair,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "GenerateKeypair": Object({
+                                "passphrase": String(
+                                    "qweqwew",
+                                ),
+                                "save": Object({
+                                    "Some": Null,
+                                }),
+                                "seed_phrase": Object({
+                                    "Some": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                    "START_NODE_MARKER": Bool(
+                        true,
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9039618-7ee1-11ec-80b9-000000000000,
+                    from: f8fbdc9c-7ee1-11ec-807a-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fbe46e-7ee1-11ec-807b-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fbdc9c-7ee1-11ec-807a-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fc0ea2-7ee1-11ec-807c-000000000000,
+            properties: {
+                "1643226955235": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    CreateAccount,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "CreateAccount": Object({
+                                "account": Null,
+                                "fee_payer": Null,
+                                "owner": Null,
+                                "token": Null,
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f903b29a-7ee1-11ec-80ba-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f903cbc6-7ee1-11ec-80bb-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f903f429-7ee1-11ec-80bc-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9042c63-7ee1-11ec-80bd-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fc1ad4-7ee1-11ec-807d-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f8ffd290-7ee1-11ec-809a-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f8ffeb13-7ee1-11ec-809b-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f9024039-7ee1-11ec-80b0-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+                Edge {
+                    id: f9039618-7ee1-11ec-80b9-000000000000,
+                    from: f8fbdc9c-7ee1-11ec-807a-000000000000,
+                    to: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fc46e5-7ee1-11ec-807e-000000000000,
+            properties: {
+                "1643226955232": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    MintToken,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "MintToken": Object({
+                                "amount": Number(
+                                    1.0,
+                                ),
+                                "fee_payer": Null,
+                                "mint_authority": Null,
+                                "recipient": Null,
+                                "token": Null,
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9043ee4-7ee1-11ec-80be-000000000000,
+                    from: f8fc46e5-7ee1-11ec-807e-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fc501d-7ee1-11ec-807f-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f9000221-7ee1-11ec-809c-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f90019b4-7ee1-11ec-809d-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f9025ad7-7ee1-11ec-80b1-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+                Edge {
+                    id: f903b29a-7ee1-11ec-80ba-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fc46e5-7ee1-11ec-807e-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fc7c0d-7ee1-11ec-8080-000000000000,
+            properties: {
+                "1643226955239": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        CreateMetadataAccounts,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "CreateMetadataAccounts": Object({
+                                    "collection": Null,
+                                    "creators": Null,
+                                    "fee_payer": Null,
+                                    "is_mutable": Bool(
+                                        true,
+                                    ),
+                                    "name": String(
+                                        "SUNSHINE_TICKET_NFT",
+                                    ),
+                                    "seller_fee_basis_points": Number(
+                                        420,
+                                    ),
+                                    "symbol": String(
+                                        "SUNFTT",
+                                    ),
+                                    "token": Null,
+                                    "token_authority": Null,
+                                    "update_authority": Null,
+                                    "update_authority_is_signer": Bool(
+                                        true,
+                                    ),
+                                    "uri": String(
+                                        "https://api.jsonbin.io/b/61ddc9072675917a628edc21",
+                                    ),
+                                    "uses": Object({
+                                        "remaining": Number(
+                                            6,
+                                        ),
+                                        "total": Number(
+                                            6,
+                                        ),
+                                        "use_method": String(
+                                            "Multiple",
+                                        ),
+                                    }),
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f904518f-7ee1-11ec-80bf-000000000000,
+                    from: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f9046552-7ee1-11ec-80c0-000000000000,
+                    from: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                    to: f8fce4f8-7ee1-11ec-8084-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fc85f2-7ee1-11ec-8081-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900325b-7ee1-11ec-809e-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f9004e40-7ee1-11ec-809f-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900674b-7ee1-11ec-80a0-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900a712-7ee1-11ec-80a1-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f900dcb1-7ee1-11ec-80a2-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f9028d95-7ee1-11ec-80b2-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+                Edge {
+                    id: f9043ee4-7ee1-11ec-80be-000000000000,
+                    from: f8fc46e5-7ee1-11ec-807e-000000000000,
+                    to: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fcca80-7ee1-11ec-8082-000000000000,
+            properties: {
+                "1643226955241": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        CreateMasterEdition,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "CreateMasterEdition": Object({
+                                    "fee_payer": Null,
+                                    "is_mutable": Bool(
+                                        false,
+                                    ),
+                                    "max_supply": Object({
+                                        "Some": Number(
+                                            5,
+                                        ),
+                                    }),
+                                    "token": Null,
+                                    "token_authority": Null,
+                                    "update_authority": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f90478cd-7ee1-11ec-80c1-000000000000,
+                    from: f8fcca80-7ee1-11ec-8082-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fcd619-7ee1-11ec-8083-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f900f5af-7ee1-11ec-80a3-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f90108bd-7ee1-11ec-80a4-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f9011b64-7ee1-11ec-80a5-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f902bd75-7ee1-11ec-80b3-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+                Edge {
+                    id: f904518f-7ee1-11ec-80bf-000000000000,
+                    from: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                    to: f8fcca80-7ee1-11ec-8082-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fce4f8-7ee1-11ec-8084-000000000000,
+            properties: {
+                "1643226955238": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226970241": String(
+                    "can't receive input, quitting",
+                ),
+                "kind": String(
+                    "Simple(\n    Print,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Simple": String(
+                            "Print",
+                        ),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    false,
+                ),
+            },
+            outbound_edges: [],
+            inbound_edges: [
+                Edge {
+                    id: f8fcec62-7ee1-11ec-8085-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fce4f8-7ee1-11ec-8084-000000000000,
+                },
+                Edge {
+                    id: f9046552-7ee1-11ec-80c0-000000000000,
+                    from: f8fc7c0d-7ee1-11ec-8080-000000000000,
+                    to: f8fce4f8-7ee1-11ec-8084-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fd1380-7ee1-11ec-8086-000000000000,
+            properties: {
+                "1643226955240": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        UpdateMetadataAccount,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "UpdateMetadataAccounts": Object({
+                                    "data": Object({
+                                        "collection": Null,
+                                        "creators": Null,
+                                        "name": String(
+                                            "SUNSHINE_TICKET_NFT2",
+                                        ),
+                                        "seller_fee_basis_points": Number(
+                                            425,
+                                        ),
+                                        "symbol": String(
+                                            "SUNFTT",
+                                        ),
+                                        "uri": String(
+                                            "https://api.jsonbin.io/b/61ddc9072675917a628edc21",
+                                        ),
+                                        "uses": Object({
+                                            "remaining": Number(
+                                                3,
+                                            ),
+                                            "total": Number(
+                                                3,
+                                            ),
+                                            "use_method": String(
+                                                "Multiple",
+                                            ),
+                                        }),
+                                    }),
+                                    "fee_payer": Null,
+                                    "is_mutable": Bool(
+                                        false,
+                                    ),
+                                    "new_update_authority": Null,
+                                    "primary_sale_happened": Bool(
+                                        true,
+                                    ),
+                                    "token": Null,
+                                    "update_authority": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9048c14-7ee1-11ec-80c2-000000000000,
+                    from: f8fd1380-7ee1-11ec-8086-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fd3488-7ee1-11ec-8087-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f9012e22-7ee1-11ec-80a6-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f9014002-7ee1-11ec-80a7-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f90152fb-7ee1-11ec-80a8-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f903034e-7ee1-11ec-80b4-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+                Edge {
+                    id: f90478cd-7ee1-11ec-80c1-000000000000,
+                    from: f8fcca80-7ee1-11ec-8082-000000000000,
+                    to: f8fd1380-7ee1-11ec-8086-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fd72a0-7ee1-11ec-8088-000000000000,
+            properties: {
+                "1643226955228": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "1643226955230": String(
+                    "starting to execute with inputs: {\n    \"STARTER_INPUT_MARKER\": Empty,\n}",
+                ),
+                "1643226955507": String(
+                    "finished execution, writing outputs",
+                ),
+                "kind": String(
+                    "Solana(\n    GenerateKeypair,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "GenerateKeypair": Object({
+                                "passphrase": String(
+                                    "qweqwew",
+                                ),
+                                "save": Object({
+                                    "Some": Null,
+                                }),
+                                "seed_phrase": Object({
+                                    "Some": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                    "START_NODE_MARKER": Bool(
+                        true,
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9049f1f-7ee1-11ec-80c3-000000000000,
+                    from: f8fd72a0-7ee1-11ec-8088-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f904b3d0-7ee1-11ec-80c4-000000000000,
+                    from: f8fd72a0-7ee1-11ec-8088-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fd8b2f-7ee1-11ec-8089-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fd72a0-7ee1-11ec-8088-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fde27e-7ee1-11ec-808a-000000000000,
+            properties: {
+                "1643226955236": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        ApproveUseAuthority,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "ApproveUseAuthority": Object({
+                                    "burner": Null,
+                                    "fee_payer": Null,
+                                    "number_of_uses": Number(
+                                        2,
+                                    ),
+                                    "owner": Null,
+                                    "token": Null,
+                                    "token_account": Null,
+                                    "user": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f904dad5-7ee1-11ec-80c5-000000000000,
+                    from: f8fde27e-7ee1-11ec-808a-000000000000,
+                    to: f8fe133a-7ee1-11ec-808c-000000000000,
+                },
+                Edge {
+                    id: f9050b9c-7ee1-11ec-80c6-000000000000,
+                    from: f8fde27e-7ee1-11ec-808a-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fdeef7-7ee1-11ec-808b-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f901652d-7ee1-11ec-80a9-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9019110-7ee1-11ec-80aa-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9031b6c-7ee1-11ec-80b5-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f903cbc6-7ee1-11ec-80bb-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f903f429-7ee1-11ec-80bc-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9048c14-7ee1-11ec-80c2-000000000000,
+                    from: f8fd1380-7ee1-11ec-8086-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+                Edge {
+                    id: f9049f1f-7ee1-11ec-80c3-000000000000,
+                    from: f8fd72a0-7ee1-11ec-8088-000000000000,
+                    to: f8fde27e-7ee1-11ec-808a-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fe133a-7ee1-11ec-808c-000000000000,
+            properties: {
+                "1643226955238": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        GetLeftUses,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "GetLeftUses": Object({
+                                    "token": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9051eb6-7ee1-11ec-80c7-000000000000,
+                    from: f8fe133a-7ee1-11ec-808c-000000000000,
+                    to: f8fe38b0-7ee1-11ec-808e-000000000000,
+                },
+                Edge {
+                    id: f90530e3-7ee1-11ec-80c8-000000000000,
+                    from: f8fe133a-7ee1-11ec-808c-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fe1e2c-7ee1-11ec-808d-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fe133a-7ee1-11ec-808c-000000000000,
+                },
+                Edge {
+                    id: f9033310-7ee1-11ec-80b6-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fe133a-7ee1-11ec-808c-000000000000,
+                },
+                Edge {
+                    id: f904dad5-7ee1-11ec-80c5-000000000000,
+                    from: f8fde27e-7ee1-11ec-808a-000000000000,
+                    to: f8fe133a-7ee1-11ec-808c-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fe38b0-7ee1-11ec-808e-000000000000,
+            properties: {
+                "1643226955229": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Simple(\n    Print,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Simple": String(
+                            "Print",
+                        ),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [],
+            inbound_edges: [
+                Edge {
+                    id: f8fe4398-7ee1-11ec-808f-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fe38b0-7ee1-11ec-808e-000000000000,
+                },
+                Edge {
+                    id: f9051eb6-7ee1-11ec-80c7-000000000000,
+                    from: f8fe133a-7ee1-11ec-808c-000000000000,
+                    to: f8fe38b0-7ee1-11ec-808e-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fe8979-7ee1-11ec-8090-000000000000,
+            properties: {
+                "1643226955231": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        Utilize,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "Utilize": Object({
+                                    "burner": Null,
+                                    "fee_payer": Null,
+                                    "number_of_uses": Number(
+                                        2,
+                                    ),
+                                    "owner": Null,
+                                    "token": Null,
+                                    "token_account": Null,
+                                    "use_authority": Null,
+                                    "use_authority_record_pda": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f90543ef-7ee1-11ec-80c9-000000000000,
+                    from: f8fe8979-7ee1-11ec-8090-000000000000,
+                    to: f8fec40d-7ee1-11ec-8092-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fe96e5-7ee1-11ec-8091-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f901c77b-7ee1-11ec-80ab-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f901d9db-7ee1-11ec-80ac-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f901ed41-7ee1-11ec-80ad-000000000000,
+                    from: f8faf7e8-7ee1-11ec-8070-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f9034b26-7ee1-11ec-80b7-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f9042c63-7ee1-11ec-80bd-000000000000,
+                    from: f8fc0ea2-7ee1-11ec-807c-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f904b3d0-7ee1-11ec-80c4-000000000000,
+                    from: f8fd72a0-7ee1-11ec-8088-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f9050b9c-7ee1-11ec-80c6-000000000000,
+                    from: f8fde27e-7ee1-11ec-808a-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+                Edge {
+                    id: f90530e3-7ee1-11ec-80c8-000000000000,
+                    from: f8fe133a-7ee1-11ec-808c-000000000000,
+                    to: f8fe8979-7ee1-11ec-8090-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8fec40d-7ee1-11ec-8092-000000000000,
+            properties: {
+                "1643226955232": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Solana(\n    Nft(\n        GetLeftUses,\n    ),\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Solana": Object({
+                            "Nft": Object({
+                                "GetLeftUses": Object({
+                                    "token": Null,
+                                }),
+                            }),
+                        }),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [
+                Edge {
+                    id: f9056263-7ee1-11ec-80ca-000000000000,
+                    from: f8fec40d-7ee1-11ec-8092-000000000000,
+                    to: f8ff0751-7ee1-11ec-8094-000000000000,
+                },
+            ],
+            inbound_edges: [
+                Edge {
+                    id: f8fed087-7ee1-11ec-8093-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8fec40d-7ee1-11ec-8092-000000000000,
+                },
+                Edge {
+                    id: f9037b8f-7ee1-11ec-80b8-000000000000,
+                    from: f8fbc0c7-7ee1-11ec-8078-000000000000,
+                    to: f8fec40d-7ee1-11ec-8092-000000000000,
+                },
+                Edge {
+                    id: f90543ef-7ee1-11ec-80c9-000000000000,
+                    from: f8fe8979-7ee1-11ec-8090-000000000000,
+                    to: f8fec40d-7ee1-11ec-8092-000000000000,
+                },
+            ],
+        },
+        Node {
+            node_id: f8ff0751-7ee1-11ec-8094-000000000000,
+            properties: {
+                "1643226955235": String(
+                    "WAITING FOR INPUTS",
+                ),
+                "kind": String(
+                    "Simple(\n    Print,\n)",
+                ),
+                "name": String(
+                    "",
+                ),
+                "original_props": Object({
+                    "COMMAND_MARKER": Object({
+                        "Simple": String(
+                            "Print",
+                        ),
+                    }),
+                    "COMMAND_NAME_MARKER": String(
+                        "",
+                    ),
+                }),
+                "success": Bool(
+                    true,
+                ),
+            },
+            outbound_edges: [],
+            inbound_edges: [
+                Edge {
+                    id: f8ff13ca-7ee1-11ec-8095-000000000000,
+                    from: f8f8a84f-7ee1-11ec-806e-000000000000,
+                    to: f8ff0751-7ee1-11ec-8094-000000000000,
+                },
+                Edge {
+                    id: f9056263-7ee1-11ec-80ca-000000000000,
+                    from: f8fec40d-7ee1-11ec-8092-000000000000,
+                    to: f8ff0751-7ee1-11ec-8094-000000000000,
+                },
+            ],
+        },
+    ],
+    state_id: 0,
+}

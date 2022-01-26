@@ -7,11 +7,12 @@ use std::sync::Arc;
 use commands::Command;
 use dashmap::DashMap;
 use mpl_token_metadata::state::Creator;
+use serde_json::Value as JsonValue;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signer::keypair::Keypair;
 use std::collections::HashMap;
-use sunshine_core::msg::{Action, GraphId, NodeId, QueryKind};
+use sunshine_core::msg::{Action, CreateEdge, GraphId, NodeId, Properties, QueryKind};
 use sunshine_core::store::Datastore;
 
 use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as Sender};
@@ -37,6 +38,7 @@ pub const INPUT_ARG_NAME_MARKER: &str = "INPUT_ARG_NAME_MARKER";
 pub const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
 pub const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
 pub const CTX_MARKER: &str = "CTX_MARKER";
+pub const COMMAND_NAME_MARKER: &str = "COMMAND_NAME_MARKER";
 
 pub struct FlowContext {
     deployed: DashMap<FlowId, watch::Sender<u8>>,
@@ -66,6 +68,26 @@ impl FlowContext {
             .await?
             .into_graph()
             .unwrap();
+
+        let (_, log_graph_id) = db.create_graph(Default::default()).await.unwrap();
+
+        let timestamp = chrono::offset::Utc::now().timestamp_millis();
+        let timestamp = JsonValue::Number(serde_json::Number::from(timestamp));
+
+        let mut props = Properties::default();
+
+        props.insert("timestamp".to_owned(), timestamp);
+
+        db.create_edge(
+            CreateEdge {
+                from: flow_id,
+                to: log_graph_id,
+                properties: props,
+            },
+            flow_id,
+        )
+        .await
+        .unwrap();
 
         let mut contexts = HashMap::new();
 
@@ -108,12 +130,31 @@ impl FlowContext {
                 }
             };
 
+            let name = node
+                .properties
+                .get(COMMAND_NAME_MARKER)
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .to_owned();
+
+            let mut props = Properties::new();
+
+            props.insert(
+                "original_props".to_owned(),
+                JsonValue::Object(node.properties.clone()),
+            );
+
+            let (_, log_node_id) = db.create_node((log_graph_id, props)).await.unwrap();
+
             nodes.insert(
                 node.node_id,
                 FlowNode {
+                    name,
                     inputs: HashMap::new(),
                     outputs: HashMap::new(),
                     cmd,
+                    log_node_id,
                 },
             );
         }
@@ -126,6 +167,17 @@ impl FlowContext {
             }
 
             for edge in node.outbound_edges.iter() {
+                db.create_edge(
+                    CreateEdge {
+                        from: nodes.get(&edge.from).unwrap().log_node_id,
+                        to: nodes.get(&edge.to).unwrap().log_node_id,
+                        properties: Default::default(),
+                    },
+                    log_graph_id,
+                )
+                .await
+                .unwrap();
+
                 let properties = db
                     .execute(Action::Query(QueryKind::ReadEdgeProperties(*edge)))
                     .await
@@ -177,7 +229,11 @@ impl FlowContext {
             }
         }
 
-        Ok(Flow { start_nodes, nodes })
+        Ok(Flow {
+            start_nodes,
+            nodes,
+            log_graph_id,
+        })
     }
 
     pub async fn deploy_flow(&self, schedule: Schedule, flow_id: FlowId) -> Result<(), Error> {
@@ -232,50 +288,110 @@ impl FlowContext {
     }
 
     async fn run_flow(db: Arc<dyn Datastore>, flow_id: FlowId, stop_signal: watch::Receiver<u8>) {
-        let Flow { nodes, start_nodes } = match Self::read_flow(db.clone(), flow_id).await {
+        let Flow {
+            nodes,
+            start_nodes,
+            log_graph_id,
+        } = match Self::read_flow(db.clone(), flow_id).await {
             Ok(flow) => flow,
             Err(e) => {
                 eprintln!("failed to read flow: {}", e);
                 return;
             }
         };
+
         for (_, node) in nodes {
+            let db = db.clone();
+
             let mut stop_signal = stop_signal.clone();
 
             let cmd_fut = async move {
                 let mut inputs = HashMap::new();
 
-                println!("{:?} WAITING FOR INPUTS", node.cmd.kind());
+                let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
+                props.insert(
+                    "kind".to_owned(),
+                    JsonValue::String(format!("{:#?}", node.cmd.kind())),
+                );
+
+                props.insert("name".to_owned(), JsonValue::String(node.name.clone()));
+
+                props.insert("success".into(), JsonValue::Bool(true));
+
+                if let Err(e) = db
+                    .update_node((node.log_node_id, props), log_graph_id)
+                    .await
+                {
+                    eprintln!("failed to update log node for command: {}", e);
+                };
+
+                let append_log = |db: Arc<dyn Datastore>, msg: String, fail: bool| async move {
+                    let time = chrono::offset::Utc::now().timestamp_millis().to_string();
+
+                    let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
+                    props.insert(time, JsonValue::String(msg));
+
+                    if fail {
+                        props.insert("success".into(), JsonValue::Bool(false));
+                    }
+
+                    if let Err(e) = db
+                        .update_node((node.log_node_id, props.clone()), log_graph_id)
+                        .await
+                    {
+                        eprintln!("failed to update logs for command: {}", e);
+                    }
+                };
+
+                append_log(db.clone(), "WAITING FOR INPUTS".into(), false).await;
 
                 for (name, mut rx) in node.inputs {
                     let input = match rx.recv().await {
                         Some(input) => input,
                         None => {
-                            eprintln!("can't receive input quitting");
+                            append_log(db.clone(), "can't receive input, quitting".into(), true)
+                                .await;
                             return;
                         }
                     };
                     inputs.insert(name, input);
                 }
 
-                println!("executing {:?}", node.cmd.kind());
-                println!("{:#?}", &inputs);
+                append_log(
+                    db.clone(),
+                    format!("starting to execute with inputs: {:#?}", &inputs),
+                    false,
+                )
+                .await;
 
                 let outputs = match run_command(&node.cmd, inputs.clone()).await {
                     Ok(outputs) => outputs,
                     Err(e) => {
-                        eprintln!("failed to run command: {:#?}", e);
+                        append_log(db.clone(), format!("failed to run command: {:#?}", e), true)
+                            .await;
                         return;
                     }
                 };
 
-                println!("executed {:?}", node.cmd.kind());
+                append_log(
+                    db.clone(),
+                    "finished execution, writing outputs".into(),
+                    false,
+                )
+                .await;
 
                 for (name, txs) in node.outputs.into_iter() {
                     let val = match outputs.get(&name) {
                         Some(val) => val.clone(),
                         None => {
-                            eprintln!("output with name {} not found", name);
+                            append_log(
+                                db.clone(),
+                                format!("output with name {} not found", name),
+                                true,
+                            )
+                            .await;
                             return;
                         }
                     };
@@ -427,9 +543,12 @@ impl From<WrappedKeypair> for Keypair {
 pub struct Flow {
     start_nodes: Vec<Sender<Value>>,
     nodes: HashMap<NodeId, FlowNode>,
+    log_graph_id: GraphId,
 }
 
 struct FlowNode {
+    log_node_id: NodeId,
+    name: String,
     inputs: HashMap<String, Receiver<Value>>,
     outputs: HashMap<String, Vec<Sender<Value>>>,
     cmd: Command,

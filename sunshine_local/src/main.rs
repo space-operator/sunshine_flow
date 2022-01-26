@@ -25,8 +25,8 @@ use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
 use sunshine_solana::commands::solana::{self, nft, Kind};
 use sunshine_solana::{
-    commands, FlowContext, NftCreator, Schedule, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER,
-    INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+    commands, FlowContext, NftCreator, Schedule, COMMAND_MARKER, COMMAND_NAME_MARKER,
+    CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
 };
 
 use sunshine_solana::commands::solana::create_account::CreateAccount;
@@ -653,12 +653,17 @@ async fn main() {
         .unwrap();
 
     let add_node = |db: Arc<DB>,
+                    name: String,
                     cfg: commands::Config,
                     is_start_node: bool,
                     inbound_edges: Vec<(NodeId, JsonValue)>| async move {
         let mut props = serde_json::Map::new();
 
         props.insert(COMMAND_MARKER.into(), serde_json::to_value(cfg).unwrap());
+        props.insert(
+            COMMAND_NAME_MARKER.into(),
+            JsonValue::String(name.to_owned()),
+        );
 
         if is_start_node {
             props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
@@ -688,6 +693,7 @@ async fn main() {
     };
 
     let add_solana_node = |db: Arc<DB>,
+                           name: String,
                            cfg: commands::Config,
                            is_start_node: bool,
                            mut inbound_edges: Vec<(NodeId, JsonValue)>| async move {
@@ -695,11 +701,12 @@ async fn main() {
             solana_ctx_node_id,
             serde_json::json!({ CTX_EDGE_MARKER: CTX_EDGE_MARKER }),
         ));
-        add_node(db, cfg, is_start_node, inbound_edges).await
+        add_node(db, name, cfg, is_start_node, inbound_edges).await
     };
 
     let node0 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
             seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("123123".into()),
@@ -712,6 +719,7 @@ async fn main() {
 
     let node1 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::RequestAirdrop(RequestAirdrop {
             pubkey: None,
             amount: Some(50_000_000),
@@ -729,6 +737,7 @@ async fn main() {
 
     let node2 = add_node(
         db.clone(),
+        "".into(),
         commands::Config::Simple(simple::Command::Print),
         false,
         vec![(
@@ -743,6 +752,7 @@ async fn main() {
 
     let node3 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
             seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("asdasdas".into()),
@@ -761,6 +771,7 @@ async fn main() {
 
     let node4 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::CreateToken(CreateToken {
             fee_payer: None,
             decimals: Some(0),
@@ -797,6 +808,7 @@ async fn main() {
 
     let node8 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
             seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("qweqwew".into()),
@@ -809,6 +821,7 @@ async fn main() {
 
     let node9 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::CreateAccount(CreateAccount {
             owner: None,
             fee_payer: None,
@@ -851,6 +864,7 @@ async fn main() {
 
     let node10 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::MintToken(MintToken {
             token: None,
             recipient: None,
@@ -894,6 +908,7 @@ async fn main() {
 
     let node6 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::CreateMetadataAccounts(
             CreateMetadataAccounts {
                 token: None,
@@ -972,6 +987,7 @@ async fn main() {
 
     let node11 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::CreateMasterEdition(
             CreateMasterEdition {
                 token: None,
@@ -1025,6 +1041,7 @@ async fn main() {
 
     let node7 = add_node(
         db.clone(),
+        "".into(),
         commands::Config::Simple(simple::Command::Print),
         false,
         vec![(
@@ -1039,6 +1056,7 @@ async fn main() {
 
     let node12 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::UpdateMetadataAccounts(
             UpdateMetadataAccounts {
                 token: None,
@@ -1105,6 +1123,7 @@ async fn main() {
 
     let node17 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::GenerateKeypair(GenerateKeypair {
             seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("qweqwew".into()),
@@ -1117,6 +1136,7 @@ async fn main() {
 
     let node18 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::ApproveUseAuthority(
             ApproveUseAuthority {
                 user: None,
@@ -1185,6 +1205,7 @@ async fn main() {
 
     let node19 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::GetLeftUses(GetLeftUses {
             token: None,
         }))),
@@ -1210,6 +1231,7 @@ async fn main() {
 
     let node20 = add_node(
         db.clone(),
+        "".into(),
         commands::Config::Simple(simple::Command::Print),
         false,
         vec![(
@@ -1224,6 +1246,7 @@ async fn main() {
 
     let node16 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::Utilize(Utilize {
             token_account: None,
             token: None,
@@ -1298,6 +1321,7 @@ async fn main() {
 
     let node21 = add_solana_node(
         db.clone(),
+        "".into(),
         commands::Config::Solana(Kind::Nft(nft::Command::GetLeftUses(GetLeftUses {
             token: None,
         }))),
@@ -1323,6 +1347,7 @@ async fn main() {
 
     let node22 = add_node(
         db.clone(),
+        "".into(),
         commands::Config::Simple(simple::Command::Print),
         false,
         vec![(
@@ -1341,8 +1366,19 @@ async fn main() {
         .unwrap();
 
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(50000000000)).await;
+        tokio::time::sleep(Duration::from_secs(15)).await;
         flow_context.undeploy_flow(flow_graph_id).unwrap();
+
+        let flow_node = db.read_node(flow_graph_id).await.unwrap();
+
+        for edge in flow_node.outbound_edges {
+            let props = db.read_edge_properties(edge).await.unwrap();
+
+            if props.contains_key("timestamp") {
+                let log_graph = db.read_graph(edge.to).await.unwrap();
+                println!("{:#?}", log_graph);
+            }
+        }
     });
 
     tokio::time::sleep(Duration::from_secs(1000)).await;
