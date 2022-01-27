@@ -8,6 +8,8 @@ use sunshine_core::msg::{CreateEdge, MutateKind, NodeId};
 use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
 use sunshine_solana::commands::simple;
+use sunshine_solana::commands::simple::http_request::HttpRequest;
+use sunshine_solana::commands::simple::json_extract::JsonExtract;
 use sunshine_solana::commands::solana::get_balance::GetBalance;
 use sunshine_solana::commands::solana::nft::approve_use_authority::ApproveUseAuthority;
 use sunshine_solana::commands::solana::nft::create_master_edition::{
@@ -906,6 +908,39 @@ async fn main() {
     )
     .await;
 
+    let node23 = add_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Simple(simple::Command::HttpRequest(HttpRequest {
+            method: Some("GET".into()),
+            url: Some(
+                "https://api.airtable.com/v0/appRYVa2YoZdNsVkk/Table%201/recWNxPJAJ4qmz1On".into(),
+            ),
+            auth_token: Some("keynH6Eh9ZN1Y2oqw".into()),
+        })),
+        true,
+        vec![],
+    )
+    .await;
+
+    let node24 = add_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Simple(simple::Command::JsonExtract(JsonExtract {
+            pointer: "/fields/Url".into(),
+            arg: "body".into(),
+        })),
+        false,
+        vec![(
+            node23,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "resp_body",
+                INPUT_ARG_NAME_MARKER: "body",
+            }),
+        )],
+    )
+    .await;
+
     let node6 = add_solana_node(
         db.clone(),
         "".into(),
@@ -917,7 +952,7 @@ async fn main() {
                 update_authority: None, // keypair
                 name: Some("SUNSHINE_TICKET_NFT".into()),
                 symbol: Some("SUNFTT".into()),
-                uri: Some("https://api.jsonbin.io/b/61ddc9072675917a628edc21".into()),
+                uri: None,
                 creators: None,
                 seller_fee_basis_points: Some(420),
                 update_authority_is_signer: Some(true),
@@ -932,6 +967,13 @@ async fn main() {
         ))),
         false,
         vec![
+            (
+                node24,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "val",
+                    INPUT_ARG_NAME_MARKER: "uri",
+                }),
+            ),
             (
                 node4,
                 serde_json::json!({
@@ -1366,7 +1408,7 @@ async fn main() {
         .unwrap();
 
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(15)).await;
+        tokio::time::sleep(Duration::from_secs(120)).await;
         flow_context.undeploy_flow(flow_graph_id).unwrap();
 
         let flow_node = db.read_node(flow_graph_id).await.unwrap();

@@ -8,10 +8,15 @@ use solana_sdk::signature::Keypair;
 
 use crate::{Error, Value};
 
+pub mod http_request;
+pub mod json_extract;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {
     Const(Value),
     Print,
+    HttpRequest(http_request::HttpRequest),
+    JsonExtract(json_extract::JsonExtract),
 }
 
 impl Command {
@@ -32,6 +37,8 @@ impl Command {
 
                 Ok(inputs)
             }
+            Command::HttpRequest(c) => c.run(inputs).await,
+            Command::JsonExtract(c) => c.run(inputs).await,
         }
     }
 
@@ -39,6 +46,8 @@ impl Command {
         match self {
             Command::Const(_) => CommandKind::Const,
             Command::Print => CommandKind::Print,
+            Command::HttpRequest(_) => CommandKind::HttpRequest,
+            Command::JsonExtract(_) => CommandKind::JsonExtract,
         }
     }
 }
@@ -47,4 +56,6 @@ impl Command {
 pub enum CommandKind {
     Const,
     Print,
+    HttpRequest,
+    JsonExtract,
 }

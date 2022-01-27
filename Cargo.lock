@@ -3199,6 +3199,7 @@ dependencies = [
 name = "sunshine_solana"
 version = "0.1.0"
 dependencies = [
+ "base64 0.13.0",
  "borsh",
  "chrono",
  "dashmap",
@@ -3208,6 +3209,7 @@ dependencies = [
  "mpl-token-metadata",
  "parse-display",
  "pathfinding",
+ "reqwest",
  "serde",
  "serde_json",
  "solana-client",

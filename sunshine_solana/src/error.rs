@@ -51,6 +51,34 @@ pub enum Error {
     IoError(std::io::Error),
     #[error("flow is already deployed")]
     FlowAlreadyDeployed,
+    #[error("http error: {0}")]
+    Http(reqwest::Error),
+    #[error("base64 decode error: {0}")]
+    Base64Decode(base64::DecodeError),
+    #[error("invalid http method")]
+    InvalidHttpMethod,
+    #[error("http status code is err: {0}")]
+    HttpStatus(u16),
+    #[error("json error: {0}")]
+    JsonError(serde_json::Error),
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(err: serde_json::Error) -> Error {
+        Error::JsonError(err)
+    }
+}
+
+impl From<base64::DecodeError> for Error {
+    fn from(err: base64::DecodeError) -> Error {
+        Error::Base64Decode(err)
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(err: reqwest::Error) -> Error {
+        Error::Http(err)
+    }
 }
 
 impl From<std::io::Error> for Error {

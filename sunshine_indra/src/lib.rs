@@ -1,5 +1,9 @@
 pub mod store;
 
+pub(crate) fn generate_uuid_v1() -> uuid::Uuid {
+    todo!()
+}
+
 // use msg::{EdgeInfo, GraphId, Msg, MutateState, MutateStateKind, Node, Query};
 // use store::Store;
 
