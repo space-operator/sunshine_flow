@@ -28,6 +28,9 @@ use error::Error;
 
 use commands::solana::nft::update_metadata_accounts::MetadataAccountData;
 
+pub use commands::solana::Config as ContextConfig;
+pub use commands::Config as CommandConfig;
+
 type FlowId = GraphId;
 
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;

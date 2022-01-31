@@ -41,9 +41,9 @@ pub struct DB {
 
 impl DB {
     pub fn new(cfg: &DbConfig) -> Result<DB> {
-        let rocks_db = SledDatastore::new(&cfg.db_path).map_err(Error::DatastoreCreate)?;
+        let source = SledDatastore::new(&cfg.db_path).map_err(Error::DatastoreCreate)?;
         let db = DB {
-            source: rocks_db,
+            source,
             root_node_type: Type::new(GRAPH_ROOT_TYPE).unwrap(),
             undo: Arc::new(Mutex::new(Vec::new())),
             redo: Arc::new(Mutex::new(Vec::new())),

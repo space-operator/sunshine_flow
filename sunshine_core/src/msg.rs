@@ -124,6 +124,13 @@ pub enum Reply {
 }
 
 impl Reply {
+    pub fn into_node_list(self) -> Option<Vec<(NodeId, Properties)>> {
+        match self {
+            Reply::NodeList(nl) => Some(nl),
+            _ => None,
+        }
+    }
+
     pub fn into_edge(self) -> Option<Edge> {
         match self {
             Reply::Edge(edge) => Some(edge),
