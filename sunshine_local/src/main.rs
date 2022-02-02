@@ -1409,7 +1409,6 @@ async fn main() {
 
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(120)).await;
-        flow_context.undeploy_flow(flow_graph_id).unwrap();
 
         let flow_node = db.read_node(flow_graph_id).await.unwrap();
 

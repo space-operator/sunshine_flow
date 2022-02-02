@@ -3,6 +3,7 @@ use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use commands::Command;
 use dashmap::DashMap;
@@ -19,7 +20,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver as Receiver, UnboundedSender as 
 use tokio::sync::watch;
 
 use parse_display::Display as ParseDisplay;
-use tokio::time::Duration;
+
 use uuid::Uuid;
 
 pub mod commands;

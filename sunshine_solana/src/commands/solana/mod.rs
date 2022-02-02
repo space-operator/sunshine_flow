@@ -218,6 +218,24 @@ pub enum Kind {
     Nft(nft::Command),
 }
 
+impl Kind {
+    pub fn kind(&self) -> CommandKind {
+        match &self {
+            Kind::GenerateKeypair(_) => CommandKind::GenerateKeypair,
+            Kind::DeleteKeypair(_) => CommandKind::DeleteKeypair,
+            Kind::AddPubkey(_) => CommandKind::AddPubkey,
+            Kind::DeletePubkey(_) => CommandKind::DeletePubkey,
+            Kind::CreateAccount(_) => CommandKind::CreateAccount,
+            Kind::GetBalance(_) => CommandKind::GetBalance,
+            Kind::CreateToken(_) => CommandKind::CreateToken,
+            Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
+            Kind::MintToken(_) => CommandKind::MintToken,
+            Kind::Transfer(_) => CommandKind::Transfer,
+            Kind::Nft(n) => CommandKind::Nft(n.kind()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum CommandKind {
     GenerateKeypair,

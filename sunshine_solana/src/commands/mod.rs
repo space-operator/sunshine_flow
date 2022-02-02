@@ -29,3 +29,12 @@ pub enum Config {
     Simple(simple::Command),
     Solana(solana::Kind),
 }
+
+impl Config {
+    pub fn kind(&self) -> CommandKind {
+        match self {
+            Config::Simple(s) => CommandKind::Simple(s.kind()),
+            Config::Solana(s) => CommandKind::Solana(s.kind()),
+        }
+    }
+}

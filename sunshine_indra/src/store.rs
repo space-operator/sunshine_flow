@@ -63,7 +63,7 @@ impl DB {
     ) -> Result<NodeId> {
         let trans = self.transaction()?;
 
-        let node_type = Type::new(GRAPH_ROOT_TYPE).map_err(Error::CreateType)?;
+        let node_type = self.root_node_type.clone();
         let node: Vertex = Vertex::with_id(graph_id, node_type);
         trans.create_vertex(&node).map_err(Error::CreateNode)?;
 
@@ -133,7 +133,7 @@ impl Datastore for DB {
         let trans = self.transaction()?;
         let futures = trans
             .get_vertices(RangeVertexQuery {
-                limit: 0,
+                limit: std::u32::MAX,
                 t: Some(self.root_node_type.clone()),
                 start_id: None,
             })
