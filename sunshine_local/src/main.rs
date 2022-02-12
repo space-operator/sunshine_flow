@@ -294,7 +294,6 @@ async fn main() {
             .await
             .unwrap();
         }
-
         node_id
     };
 
@@ -606,7 +605,7 @@ async fn main() {
 //                                     7-10     10.// print B pubkey
 //
 //   5-14    14// print minting account pubkey
-
+/*
 #[tokio::main]
 async fn main() {
     let db_config = DbConfig {
@@ -654,6 +653,7 @@ async fn main() {
         .as_id()
         .unwrap();
 
+    // create command nodes
     let add_node = |db: Arc<DB>,
                     name: String,
                     cfg: commands::Config,
@@ -1423,4 +1423,40 @@ async fn main() {
     });
 
     tokio::time::sleep(Duration::from_secs(1000)).await;
+}
+*/
+
+#[tokio::main]
+async fn main() {
+    let db_config = DbConfig {
+        db_path: "/home/amir/SUNSHINE_DB".into(),
+    };
+    let db = DB::new(&db_config).unwrap();
+    let db = Arc::new(db);
+
+    let flow_context = FlowContext::new(db.clone());
+
+    let flow_graph_id = uuid::Uuid::from_str("ebea9a5d-89d4-11ec-8000-000000000000").unwrap();
+
+    flow_context
+        .deploy_flow(Schedule::Once, flow_graph_id)
+        .await
+        .unwrap();
+
+    let mut interval = tokio::time::interval(Duration::from_secs(30));
+
+    loop {
+        interval.tick().await;
+
+        let flow_node = db.read_node(flow_graph_id).await.unwrap();
+
+        for edge in flow_node.outbound_edges {
+            let props = db.read_edge_properties(edge).await.unwrap();
+
+            if props.contains_key("timestamp") {
+                let log_graph = db.read_graph(edge.to).await.unwrap();
+                println!("{:#?}", log_graph);
+            }
+        }
+    }
 }

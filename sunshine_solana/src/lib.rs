@@ -149,6 +149,11 @@ impl FlowContext {
                 JsonValue::Object(node.properties.clone()),
             );
 
+            props.insert(
+                "original_node_id".to_owned(),
+                JsonValue::String(node.node_id.to_string()),
+            );
+
             let (_, log_node_id) = db.create_node((log_graph_id, props)).await.unwrap();
 
             nodes.insert(

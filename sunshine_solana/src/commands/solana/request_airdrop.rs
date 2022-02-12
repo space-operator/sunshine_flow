@@ -9,6 +9,8 @@ use crate::{error::Error, Value};
 
 use super::Ctx;
 
+// Devnet has a maximum 2 SOL per airdrop request per account per 3-4 seconds.
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RequestAirdrop {
     pub pubkey: Option<NodeId>,

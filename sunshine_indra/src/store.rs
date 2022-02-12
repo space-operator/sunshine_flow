@@ -2,12 +2,12 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use indradb::{
-    Datastore as IndraDatastore, EdgeKey, EdgePropertyQuery, RangeVertexQuery, SledDatastore,
-    SpecificEdgeQuery, SpecificVertexQuery, Transaction, Type, Vertex, VertexPropertyQuery,
-    VertexQuery, VertexQueryExt,
+    Datastore as IndraDatastore, EdgeKey, EdgePropertyQuery, RangeVertexQuery, SledConfig,
+    SledDatastore, SpecificEdgeQuery, SpecificVertexQuery, Transaction, Type, Vertex,
+    VertexPropertyQuery, VertexQuery, VertexQueryExt,
 };
 
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 use uuid::Uuid;
 
 use sunshine_core::error::*;
@@ -41,6 +41,10 @@ pub struct DB {
 
 impl DB {
     pub fn new(cfg: &DbConfig) -> Result<DB> {
+        // let sled_config = SledConfig::default();
+        // let sled = sled_config.open(&cfg.db_path).unwrap();
+
+        // let source = sled;
         let source = SledDatastore::new(&cfg.db_path).map_err(Error::DatastoreCreate)?;
         let db = DB {
             source,
@@ -362,6 +366,7 @@ impl Datastore for DB {
             .delete_vertices(VertexQuery::Specific(query))
             .map_err(Error::DeleteNode)?;
 
+        dbg!(deleted_node.clone());
         let edges = deleted_node
             .inbound_edges
             .into_iter()
@@ -401,6 +406,7 @@ impl Datastore for DB {
             inner: get_created_edge.into(),
             name: VERTEX_PROPERTY_HOLDER.into(),
         };
+        // dbg!(msg.properties.clone());
         trans
             .set_edge_properties(query, &JsonValue::Object(msg.properties))
             .map_err(Error::SetEdgeProperties)?;
@@ -431,7 +437,8 @@ impl Datastore for DB {
 
         let properties = match properties.len() {
             1 => properties.pop().unwrap().value,
-            _ => unreachable!(),
+            0 => json!({}), //empty object to prevent panic when iterating over
+            _ => panic!(),
         };
 
         match properties {

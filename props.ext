@@ -1,0 +1,38 @@
+{
+    "coords": Object({
+        "x": Number(
+            0,
+        ),
+        "y": Number(
+            0,
+        ),
+    }),
+    "dimensions": Object({
+        "height": Number(
+            300,
+        ),
+        "width": Number(
+            300,
+        ),
+    }),
+    "kind": Object({
+        "command": Object({
+            "Simple": String(
+                "Print",
+            ),
+        }),
+    }),
+    "original_props": Object({
+        "COMMAND_MARKER": Object({
+            "Simple": String(
+                "Print",
+            ),
+        }),
+        "COMMAND_NAME_MARKER": String(
+            "Print",
+        ),
+    }),
+    "type": String(
+        "Widget",
+    ),
+}

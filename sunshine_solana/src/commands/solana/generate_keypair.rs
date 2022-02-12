@@ -34,7 +34,8 @@ impl GenerateKeypair {
         let seed_phrase: Option<String> = match self.seed_phrase.clone() {
             Arg::Some(val) => val,
             Arg::None => match inputs.remove("seed_phrase") {
-                Some(Value::StringOpt(s)) => s,
+                Some(Value::String(s)) => Some(s),
+                Some(Value::Empty) => None,
                 _ => return Err(Error::ArgumentNotFound("seed_phrase".to_string())),
             },
         };
@@ -50,7 +51,8 @@ impl GenerateKeypair {
         let save: Option<String> = match self.save.clone() {
             Arg::Some(val) => val,
             Arg::None => match inputs.remove("save") {
-                Some(Value::StringOpt(s)) => s,
+                Some(Value::String(s)) => Some(s),
+                Some(Value::Empty) => None,
                 _ => return Err(Error::ArgumentNotFound("save".to_string())),
             },
         };
