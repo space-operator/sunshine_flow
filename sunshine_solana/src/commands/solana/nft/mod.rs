@@ -5,6 +5,7 @@ use super::Ctx;
 use crate::{error::Error, Value};
 
 pub mod approve_use_authority;
+pub mod arweave_upload;
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
 pub mod get_left_uses;
@@ -19,6 +20,7 @@ pub enum Command {
     Utilize(utilize::Utilize),
     ApproveUseAuthority(approve_use_authority::ApproveUseAuthority),
     GetLeftUses(get_left_uses::GetLeftUses),
+    ArweaveUpload(arweave_upload::ArweaveUpload),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -29,6 +31,7 @@ pub enum CommandKind {
     Utilize,
     ApproveUseAuthority,
     GetLeftUses,
+    ArweaveUpload,
 }
 
 impl Command {
@@ -44,6 +47,7 @@ impl Command {
             Command::Utilize(k) => k.run(ctx, inputs).await,
             Command::ApproveUseAuthority(k) => k.run(ctx, inputs).await,
             Command::GetLeftUses(k) => k.run(ctx, inputs).await,
+            Command::ArweaveUpload(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -55,6 +59,7 @@ impl Command {
             Command::Utilize(_) => CommandKind::Utilize,
             Command::ApproveUseAuthority(_) => CommandKind::ApproveUseAuthority,
             Command::GetLeftUses(_) => CommandKind::GetLeftUses,
+            Command::ArweaveUpload(_) => CommandKind::ArweaveUpload,
         }
     }
 }

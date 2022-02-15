@@ -5,6 +5,7 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 use sunshine_core::msg::{Graph, GraphId, Properties};
 use sunshine_core::store::Datastore;
+use url::Url;
 
 use crate::{error::Error, Value};
 
@@ -30,7 +31,8 @@ const PUBKEY_MARKER: &str = "PUBKEY_MARKER";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
-    pub url: String,
+    pub solana_url: String,
+    pub solana_arweave_url: String,
     pub wallet_graph: GraphId,
 }
 
@@ -38,14 +40,18 @@ pub struct Ctx {
     client: RpcClient,
     db: Arc<dyn Datastore>,
     wallet_graph: GraphId,
+    solana_url: Url,
+    solana_arweave_url: Url,
 }
 
 impl Ctx {
     pub fn new(cfg: Config, db: Arc<dyn Datastore>) -> Result<Ctx, Error> {
         Ok(Ctx {
-            client: RpcClient::new(cfg.url),
+            client: RpcClient::new(cfg.solana_url.clone()),
             wallet_graph: cfg.wallet_graph,
             db,
+            solana_url: Url::parse(&cfg.solana_url)?,
+            solana_arweave_url: Url::parse(&cfg.solana_arweave_url)?,
         })
     }
 

@@ -61,6 +61,24 @@ pub enum Error {
     HttpStatus(u16),
     #[error("json error: {0}")]
     JsonError(serde_json::Error),
+    #[error("failed to parse url: {0}")]
+    UrlParse(String),
+    #[error("arweave tx not found after submitting")]
+    ArweaveTxNotFound,
+    #[error("arweave upload error: {0}")]
+    ArLoader(String),
+}
+
+impl From<arloader::error::Error> for Error {
+    fn from(err: arloader::error::Error) -> Error {
+        Error::ArLoader(err.to_string())
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Error {
+        Error::UrlParse(err.to_string())
+    }
 }
 
 impl From<serde_json::Error> for Error {

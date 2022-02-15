@@ -9,6 +9,7 @@ use solana_sdk::signature::Keypair;
 use crate::{Error, Value};
 
 pub mod http_request;
+pub mod ipfs_upload;
 pub mod json_extract;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

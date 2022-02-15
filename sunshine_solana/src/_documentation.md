@@ -13,3 +13,9 @@ https://docs.solana.com/wallet-guide/paper-wallet#verifying-the-keypair
 https://github.com/heavy-duty/platform/tree/f91b1db1ff99d0559d4043f556371ff455cb3a14/apps/bulldozer-programs/programs/bulldozer/src
 https://github.com/heavy-duty/platform/blob/f91b1db1ff99d0559d4043f556371ff455cb3a14/apps/bulldozer-client/src/main.ts
 https://docs.solana.com/cluster/bench-tps
+
+
+
+https://github.com/Bundlr-Network/rust-sdk
+https://docs.bundlr.network/docs/client/cli
+https://docs.arweave.org/developers/server/http-api#upload-chunks
