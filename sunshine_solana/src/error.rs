@@ -57,16 +57,20 @@ pub enum Error {
     Base64Decode(base64::DecodeError),
     #[error("invalid http method")]
     InvalidHttpMethod,
-    #[error("http status code is err: {0}")]
-    HttpStatus(u16),
+    #[error("http status code is err: {0}, body: {1}.")]
+    HttpStatus(u16, String),
     #[error("json error: {0}")]
     JsonError(serde_json::Error),
     #[error("failed to parse url: {0}")]
     UrlParse(String),
-    #[error("arweave tx not found after submitting")]
-    ArweaveTxNotFound,
+    #[error("arweave tx not found after submitting. tx_id: {0}")]
+    ArweaveTxNotFound(String),
     #[error("arweave upload error: {0}")]
     ArLoader(String),
+    #[error("can't get filename")]
+    NoFilename,
+    #[error("invalid filename")]
+    InvalidFilename,
 }
 
 impl From<arloader::error::Error> for Error {

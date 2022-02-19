@@ -1,7 +1,9 @@
+use std::path::PathBuf;
 use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
+use arloader::crypto::Provider;
 use maplit::hashmap;
 use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
 use serde::{Deserialize, Serialize};
@@ -58,8 +60,17 @@ impl ArweaveUpload {
             },
         };
 
-        /*
-        let arweave = Arweave::default();
+        let ar_sol_dev_wallet_address = Provider::from_keypair_path(PathBuf::from(
+            "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json",
+        ))
+        .await?
+        .wallet_address()
+        .unwrap()
+        .to_string();
+
+        let mut arweave = Arweave::default();
+        arweave.base_url =
+            url::Url::parse("http://localhost:1984/mint/{}/100000000000000").unwrap();
 
         let price_terms = arweave.get_price_terms(reward_mult).await?;
 
@@ -79,23 +90,34 @@ impl ArweaveUpload {
         loop {
             match status.status {
                 StatusCode::Confirmed => break,
-                StatusCode::NotFound => return Err(Error::ArweaveTxNotFound),
+                StatusCode::NotFound => {
+                    return Err(Error::ArweaveTxNotFound(status.id.to_string()))
+                }
                 StatusCode::Submitted | StatusCode::Pending => {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     status = arweave.get_status(&status.id).await?;
                 }
             }
         }
-        */
 
         let outputs = hashmap! {
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
-            //"file_uri".to_owned() => Value::String(format!("https://arweave.net/{}", status.id.to_string())),
+            "file_uri".to_owned() => Value::String(format!("https://arweave.net/{}", status.id.to_string())),
         };
 
         Ok(outputs)
     }
 }
+
+// https://github.com/ArweaveTeam/arweave/releases/tag/N.2.5.1.0
+// https://stackoverflow.com/questions/62707041/clang-format-not-working-in-vim-missing-libtinfo-so-5-library
+// sudo apt update && sudo apt install -y libtinfo5
+// sudo apt-get install libgmp3-dev
+
+// https://computingforgeeks.com/how-to-install-latest-erlang-on-ubuntu-linux/
+
+//https://github.com/ArweaveTeam/testweave-docker
+//https://docs.docker.com/compose/install/
 
 /*
 

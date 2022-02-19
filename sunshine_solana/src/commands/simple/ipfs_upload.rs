@@ -1,6 +1,7 @@
 use crate::{Error, Value};
 
 use maplit::hashmap;
+use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -13,8 +14,7 @@ use reqwest::multipart::{Form, Part};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct IpfsUpload {
     pub pinata_url: Option<String>,
-    pub pinata_key: Option<String>,
-    pub pinata_secret: Option<String>,
+    pub pinata_jwt: Option<String>,
     pub file_path: Option<String>,
 }
 
@@ -31,19 +31,11 @@ impl IpfsUpload {
             },
         };
 
-        let pinata_key = match &self.pinata_key {
+        let pinata_jwt = match &self.pinata_jwt {
             Some(s) => s.clone(),
-            None => match inputs.remove("pinata_key") {
+            None => match inputs.remove("pinata_jwt") {
                 Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("pinata_key".to_string())),
-            },
-        };
-
-        let pinata_secret = match &self.pinata_secret {
-            Some(s) => s.clone(),
-            None => match inputs.remove("pinata_secret") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("pinata_secret".to_string())),
+                _ => return Err(Error::ArgumentNotFound("pinata_jwt".to_string())),
             },
         };
 
@@ -55,26 +47,32 @@ impl IpfsUpload {
             },
         };
 
-        let path = Path::new(file_path);
+        let path = Path::new(&file_path).to_path_buf();
 
-        let filename = path.filename().ok_or()?;
+        let filename = path
+            .file_name()
+            .ok_or(Error::NoFilename)?
+            .to_str()
+            .ok_or(Error::InvalidFilename)?
+            .to_owned();
+
+        let file = tokio::fs::read(path).await?;
 
         let client = Client::new();
 
-        let mut builder = client
-            .post(format!("{}/pinning/pinFileToIPFS"))
-            //.header()
-            //.header()
-            .multipart(Form::new().part(
-                "file",
-                Part::stream(tokio::fs::read(path)).filename(filename),
-            ));
+        let req = client
+            .post(format!("{}/pinning/pinFileToIPFS", pinata_url))
+            .bearer_auth(pinata_jwt)
+            .multipart(Form::new().part("file", Part::stream(file).file_name(filename)));
 
-        let resp = builder.send().await?;
+        let resp = req.send().await?;
 
         let status = resp.status();
         if !status.is_success() {
-            return Err(Error::HttpStatus(status.as_u16()));
+            return Err(Error::HttpStatus(
+                status.as_u16(),
+                resp.text().await.unwrap_or(String::new()),
+            ));
         }
 
         let resp_body: JsonValue = resp.json().await?;

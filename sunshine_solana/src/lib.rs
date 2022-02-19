@@ -326,8 +326,6 @@ impl FlowContext {
 
                 props.insert("name".to_owned(), JsonValue::String(node.name.clone()));
 
-                props.insert("success".into(), JsonValue::Bool(true));
-
                 if let Err(e) = db
                     .update_node((node.log_node_id, props), log_graph_id)
                     .await
@@ -382,6 +380,17 @@ impl FlowContext {
                             .await;
                         return;
                     }
+                };
+
+                let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
+                props.insert("success".into(), JsonValue::Bool(true));
+
+                if let Err(e) = db
+                    .update_node((node.log_node_id, props), log_graph_id)
+                    .await
+                {
+                    eprintln!("failed to update log node for command: {}", e);
                 };
 
                 append_log(

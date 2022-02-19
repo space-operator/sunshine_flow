@@ -51,7 +51,7 @@ impl HttpRequest {
 
         let status = resp.status();
         if !status.is_success() {
-            return Err(Error::HttpStatus(status.as_u16()));
+            return Err(Error::HttpStatus(status.as_u16(), "".into()));
         }
 
         let resp_body = resp.text().await?;

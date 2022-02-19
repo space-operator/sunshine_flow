@@ -9,9 +9,11 @@ use sunshine_core::{msg::Action, store::Datastore};
 use sunshine_indra::store::{DbConfig, DB};
 use sunshine_solana::commands::simple;
 use sunshine_solana::commands::simple::http_request::HttpRequest;
+use sunshine_solana::commands::simple::ipfs_upload::IpfsUpload;
 use sunshine_solana::commands::simple::json_extract::JsonExtract;
 use sunshine_solana::commands::solana::get_balance::GetBalance;
 use sunshine_solana::commands::solana::nft::approve_use_authority::ApproveUseAuthority;
+use sunshine_solana::commands::solana::nft::arweave_upload::ArweaveUpload;
 use sunshine_solana::commands::solana::nft::create_master_edition::{
     Arg as MasterEditionArg, CreateMasterEdition,
 };
@@ -605,7 +607,7 @@ async fn main() {
 //                                     7-10     10.// print B pubkey
 //
 //   5-14    14// print minting account pubkey
-/*
+
 #[tokio::main]
 async fn main() {
     let db_config = DbConfig {
@@ -637,7 +639,8 @@ async fn main() {
     let mut props = serde_json::Map::new();
 
     let solana_context_config = solana::Config {
-        url: "https://api.devnet.solana.com".into(),
+        solana_url: "https://api.devnet.solana.com".into(),
+        solana_arweave_url: "https://arloader.io/dev".into(),
         wallet_graph: wallet_graph_id,
     };
 
@@ -736,6 +739,8 @@ async fn main() {
         )],
     )
     .await;
+
+    /*
 
     let node2 = add_node(
         db.clone(),
@@ -1402,30 +1407,108 @@ async fn main() {
     )
     .await;
 
+    let node23 = add_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Simple(simple::Command::IpfsUpload(IpfsUpload {
+            pinata_url: Some("https://api.pinata.cloud".into()),
+            // pinata_key: Some("bacddb411bd45dd3a531".into()),
+            // pinata_secret: Some(
+            //     "19daa373cd4537b4c78742c9dd4b75550b89cfd69a49b8c491a744933c85680b".into(),
+            // ),
+            file_path: Some("image.jpg".into()),
+            pinata_jwt: Some("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJiYWNkZGI0MTFiZDQ1ZGQzYTUzMSIsInNjb3BlZEtleVNlY3JldCI6IjE5ZGFhMzczY2Q0NTM3YjRjNzg3NDJjOWRkNGI3NTU1MGI4OWNmZDY5YTQ5YjhjNDkxYTc0NDkzM2M4NTY4MGIiLCJpYXQiOjE2NDQ5NTQ0ODl9.9AUY-lYSMpWSS7IQcnkv52J_MYiPDhagWbUT2rv7yTk".into()),
+        })),
+        true,
+        vec![],
+    )
+    .await;
+
+    let node24 = add_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node23,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "image_cid",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
+    */
+
+    let node25 = add_solana_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Solana(Kind::Nft(nft::Command::ArweaveUpload(ArweaveUpload {
+            fee_payer: None,
+            reward_mult: Some(10.),
+            file_path: Some("image.jpg".into()),
+        }))),
+        false,
+        vec![
+            (
+                node0,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "keypair",
+                    INPUT_ARG_NAME_MARKER: "fee_payer",
+                }),
+            ),
+            (
+                node1,
+                serde_json::json!({
+                    OUTPUT_ARG_NAME_MARKER: "signature",
+                    INPUT_ARG_NAME_MARKER: "signature",
+                }),
+            ),
+        ],
+    )
+    .await;
+
+    let node26 = add_node(
+        db.clone(),
+        "".into(),
+        commands::Config::Simple(simple::Command::Print),
+        false,
+        vec![(
+            node25,
+            serde_json::json!({
+                OUTPUT_ARG_NAME_MARKER: "file_uri",
+                INPUT_ARG_NAME_MARKER: "print",
+            }),
+        )],
+    )
+    .await;
+
     flow_context
         .deploy_flow(Schedule::Once, flow_graph_id)
         .await
         .unwrap();
 
     tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(120)).await;
+        loop {
+            tokio::time::sleep(Duration::from_secs(15)).await;
 
-        let flow_node = db.read_node(flow_graph_id).await.unwrap();
+            let flow_node = db.read_node(flow_graph_id).await.unwrap();
 
-        for edge in flow_node.outbound_edges {
-            let props = db.read_edge_properties(edge).await.unwrap();
+            for edge in flow_node.outbound_edges {
+                let props = db.read_edge_properties(edge).await.unwrap();
 
-            if props.contains_key("timestamp") {
-                let log_graph = db.read_graph(edge.to).await.unwrap();
-                println!("{:#?}", log_graph);
+                if props.contains_key("timestamp") {
+                    let log_graph = db.read_graph(edge.to).await.unwrap();
+                    println!("{:#?}", log_graph);
+                }
             }
         }
     });
 
     tokio::time::sleep(Duration::from_secs(1000)).await;
 }
-*/
 
+/*
 #[tokio::main]
 async fn main() {
     let db_config = DbConfig {
@@ -1460,3 +1543,4 @@ async fn main() {
         }
     }
 }
+*/

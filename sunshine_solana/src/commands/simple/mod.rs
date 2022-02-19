@@ -18,6 +18,7 @@ pub enum Command {
     Print,
     HttpRequest(http_request::HttpRequest),
     JsonExtract(json_extract::JsonExtract),
+    IpfsUpload(ipfs_upload::IpfsUpload),
 }
 
 impl Command {
@@ -40,6 +41,7 @@ impl Command {
             }
             Command::HttpRequest(c) => c.run(inputs).await,
             Command::JsonExtract(c) => c.run(inputs).await,
+            Command::IpfsUpload(c) => c.run(inputs).await,
         }
     }
 
@@ -49,6 +51,7 @@ impl Command {
             Command::Print => CommandKind::Print,
             Command::HttpRequest(_) => CommandKind::HttpRequest,
             Command::JsonExtract(_) => CommandKind::JsonExtract,
+            Command::IpfsUpload(_) => CommandKind::IpfsUpload,
         }
     }
 }
@@ -59,4 +62,5 @@ pub enum CommandKind {
     Print,
     HttpRequest,
     JsonExtract,
+    IpfsUpload,
 }
