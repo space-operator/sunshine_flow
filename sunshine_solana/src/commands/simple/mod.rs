@@ -28,7 +28,7 @@ impl Command {
     ) -> Result<HashMap<String, Value>, Error> {
         match self {
             Command::Const(c) => Ok(hashmap! {
-                "res".into() => c.clone(),
+                "output".into() => c.clone(),
             }),
             Command::Print => {
                 let arg = inputs

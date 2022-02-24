@@ -34,6 +34,8 @@ pub use commands::Config as CommandConfig;
 
 type FlowId = GraphId;
 
+type RunId = Uuid;
+
 type CommandResult = Result<(u64, Vec<Instruction>), Error>;
 
 pub const START_NODE_MARKER: &str = "START_NODE_MARKER";
@@ -43,6 +45,7 @@ pub const OUTPUT_ARG_NAME_MARKER: &str = "OUTPUT_ARG_NAME_MARKER";
 pub const CTX_EDGE_MARKER: &str = "CTX_EDGE_MARKER";
 pub const CTX_MARKER: &str = "CTX_MARKER";
 pub const COMMAND_NAME_MARKER: &str = "COMMAND_NAME_MARKER";
+pub const RUN_ID_MARKER: &str = "RUN_ID_MARKER";
 
 pub struct FlowContext {
     deployed: DashMap<FlowId, watch::Sender<u8>>,
@@ -62,7 +65,9 @@ impl FlowContext {
             .deployed
             .remove(&flow_id)
             .ok_or(Error::FlowDoesntExist)?;
-        stop_signal.send(5).unwrap();
+        if stop_signal.send(5).is_err() {
+            eprintln!("flow already undeployed itself");
+        }
         Ok(())
     }
 
@@ -80,7 +85,13 @@ impl FlowContext {
 
         let mut props = Properties::default();
 
+        let run_id = Uuid::new_v4();
+
         props.insert("timestamp".to_owned(), timestamp);
+        props.insert(
+            RUN_ID_MARKER.to_owned(),
+            JsonValue::String(run_id.to_string()),
+        );
 
         db.create_edge(
             CreateEdge {
@@ -242,23 +253,26 @@ impl FlowContext {
             start_nodes,
             nodes,
             log_graph_id,
+            run_id,
         })
     }
 
-    pub async fn deploy_flow(&self, schedule: Schedule, flow_id: FlowId) -> Result<(), Error> {
-        if self.deployed.contains_key(&flow_id) {
-            return Err(Error::FlowAlreadyDeployed);
-        }
+    pub async fn deploy_flow(
+        &self,
+        schedule: Schedule,
+        flow_id: FlowId,
+    ) -> Result<Option<RunId>, Error> {
+        self.undeploy_flow(flow_id).ok();
 
         let (send_stop_signal, stop_signal) = watch::channel(1u8);
 
         let res = match schedule {
-            Schedule::Once => {
-                Self::run_flow(self.db.clone(), flow_id, stop_signal).await;
-            }
+            Schedule::Once => Self::run_flow(self.db.clone(), flow_id, stop_signal).await,
             Schedule::Interval(period) => {
                 self.start_flow_with_interval(period, flow_id, stop_signal)
-                    .await?
+                    .await?;
+
+                None
             }
         };
 
@@ -296,16 +310,21 @@ impl FlowContext {
         Ok(())
     }
 
-    async fn run_flow(db: Arc<dyn Datastore>, flow_id: FlowId, stop_signal: watch::Receiver<u8>) {
+    async fn run_flow(
+        db: Arc<dyn Datastore>,
+        flow_id: FlowId,
+        stop_signal: watch::Receiver<u8>,
+    ) -> Option<RunId> {
         let Flow {
             nodes,
             start_nodes,
             log_graph_id,
+            run_id,
         } = match Self::read_flow(db.clone(), flow_id).await {
             Ok(flow) => flow,
             Err(e) => {
                 eprintln!("failed to read flow: {}", e);
-                return;
+                return None;
             }
         };
 
@@ -430,6 +449,8 @@ impl FlowContext {
         for node in start_nodes {
             node.send(Value::Empty).unwrap();
         }
+
+        Some(run_id)
     }
 }
 
@@ -565,6 +586,7 @@ pub struct Flow {
     start_nodes: Vec<Sender<Value>>,
     nodes: HashMap<NodeId, FlowNode>,
     log_graph_id: GraphId,
+    run_id: Uuid,
 }
 
 struct FlowNode {

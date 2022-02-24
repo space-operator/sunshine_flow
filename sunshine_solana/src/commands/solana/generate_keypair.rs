@@ -44,6 +44,7 @@ impl GenerateKeypair {
             Some(s) => s.clone(),
             None => match inputs.remove("passphrase") {
                 Some(Value::String(s)) => s,
+                Some(Value::Empty) => String::new(),
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
             },
         };

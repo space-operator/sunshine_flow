@@ -115,10 +115,10 @@ impl ArweaveUpload {
 // sudo apt-get install libgmp3-dev
 
 // https://computingforgeeks.com/how-to-install-latest-erlang-on-ubuntu-linux/
-
+// https://docs.arweave.org/developers/server/http-api#submit-a-transaction
 //https://github.com/ArweaveTeam/testweave-docker
 //https://docs.docker.com/compose/install/
-
+// https://github.com/CalebEverett/arloader/blob/be1a0e76f67a63fae8fa7518decccdb1eae6e0b8/tests/integration.rs
 /*
 
 
