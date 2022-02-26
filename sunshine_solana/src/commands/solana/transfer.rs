@@ -21,7 +21,7 @@ pub struct Transfer {
     pub recipient: Option<NodeId>,
     pub sender: Option<Option<NodeId>>,
     pub sender_owner: Option<NodeId>,
-    pub allow_unfunded_recipient: Option<bool>,
+    pub allow_unfunded: Option<bool>,
     pub fund_recipient: Option<bool>,
     pub memo: Option<Option<String>>,
 }
@@ -92,15 +92,11 @@ impl Transfer {
             },
         };
 
-        let allow_unfunded_recipient = match self.allow_unfunded_recipient {
+        let allow_unfunded = match self.allow_unfunded {
             Some(s) => s,
-            None => match inputs.remove("allow_unfunded_recipient") {
+            None => match inputs.remove("allow_unfunded") {
                 Some(Value::Bool(s)) => s,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "allow_unfunded_recipient".to_string(),
-                    ))
-                }
+                _ => return Err(Error::ArgumentNotFound("allow_unfunded".to_string())),
             },
         };
 
@@ -116,6 +112,8 @@ impl Transfer {
             Some(val) => val,
             None => match inputs.remove("memo") {
                 Some(Value::StringOpt(s)) => s,
+                Some(Value::String(s)) => Some(s),
+                Some(Value::Empty) => None,
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
@@ -128,7 +126,7 @@ impl Transfer {
             recipient,
             sender.as_ref().map(|s| s.pubkey()),
             sender_owner.pubkey(),
-            allow_unfunded_recipient,
+            allow_unfunded,
             fund_recipient,
             memo,
         )?;
@@ -151,7 +149,8 @@ impl Transfer {
 
         let outputs = hashmap! {
             "sender_owner".to_owned()=> Value::Pubkey(sender_owner.pubkey()),
-            "recipient_acc".to_owned()=> Value::Pubkey(recipient_acc),
+            "recipient_account".to_owned()=> Value::Pubkey(recipient_acc),
+            "signature".to_owned() => Value::Success(signature),
         };
 
         Ok(outputs)

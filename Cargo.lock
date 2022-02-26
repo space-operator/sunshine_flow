@@ -76,9 +76,9 @@ checksum = "159bb86af3a200e19a068f4224eae4c8bb2d0fa054c7e5d1cacd5cef95e684cd"
 
 [[package]]
 name = "arloader"
-version = "0.1.57"
+version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "237c1ddd7cf28c94e2f38ebc6d75cabb1af804d01f79c8a0bc8bb133bad14530"
+checksum = "ea54e41dc4a307cdc3923301197868661ba1d4dbce8cd1a1f586c4ebaf45f883"
 dependencies = [
  "avro-rs",
  "base64 0.13.0",
@@ -1653,9 +1653,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-token-metadata"
-version = "1.2.4"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42c39091422652a995339dbd98c1789647af517c400ee5c822c47fd7c6e7b084"
+checksum = "fe5e23f9f14cbd35ab82c471e7a024f617a8f65b0468fa2c8c7eb4def7ebaa18"
 dependencies = [
  "arrayref",
  "borsh",
@@ -2419,9 +2419,9 @@ dependencies = [
 
 [[package]]
 name = "security-framework"
-version = "2.6.1"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2dc14f172faf8a0194a3aded622712b0de276821addc574fa54fc0a1167e10dc"
+checksum = "23a2ac85147a3a11d77ecf1bc7166ec0b92febfa4461c37944e180f319ece467"
 dependencies = [
  "bitflags",
  "core-foundation",
@@ -3322,6 +3322,7 @@ dependencies = [
  "async-trait",
  "indradb-lib",
  "reqwest",
+ "serde",
  "serde_json",
  "thiserror",
  "uuid",

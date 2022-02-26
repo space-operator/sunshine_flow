@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solana-sdk = "1.8.14"
-solana-client = "1.8.14"
+solana-sdk = "=1.9.9"
+solana-client = "=1.9.9"
 tiny-bip39 = "0.8.2"
 spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
 spl-memo = { version = "3.0.1", features = [ "no-entrypoint" ] }
@@ -28,11 +28,22 @@ borsh = "0.9.1"
 chrono = "0.4.19"
 reqwest = { version = "0.11.9", features = [ "multipart" ] }
 base64 = "0.13.0"
-arloader = "0.1.57"
+arloader = "0.1.58"
 jsonwebkey = "0.3.4"
 ring = "0.16.20"
 url = "2.2.2"
 rand = "0.8.5"
+#zstd-safe = "4.1.4"
+#indradb = "2.2.0"
+#zstd-sys = "1.4.17+zstd.1.4.5"
+
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
+
+
+#[dependencies.solana-client]
+#git = "https://github.com/solana-labs/solana/"
+#rev = "2b0f16e7c378c14c8320b194d0963836343e52d2"
+
+

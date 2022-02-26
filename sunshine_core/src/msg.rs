@@ -1,4 +1,5 @@
 use indradb::{EdgeKey, Type};
+use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::convert::TryFrom;
 use uuid::Uuid;
@@ -44,7 +45,7 @@ pub enum QueryKind {
                         //get node with property
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph {
     pub nodes: Vec<Node>,
     pub state_id: u64,
@@ -62,7 +63,7 @@ pub struct RecreateNode {
     pub edges: Vec<(Edge, Properties)>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Node {
     pub node_id: NodeId,
     pub properties: Properties,
@@ -76,7 +77,7 @@ pub struct Node {
 //     name: String,
 // }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub struct Edge {
     pub id: EdgeId, // EdgeType
     pub from: NodeId,

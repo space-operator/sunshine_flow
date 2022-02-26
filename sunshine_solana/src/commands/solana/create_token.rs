@@ -65,6 +65,7 @@ impl CreateToken {
             Some(s) => s.clone(),
             None => match inputs.remove("memo") {
                 Some(Value::String(s)) => s,
+                Some(Value::Empty) => String::new(),
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
@@ -95,6 +96,8 @@ impl CreateToken {
         let outputs = hashmap! {
             "token".to_owned()=> Value::Keypair(token.into()),
             "signature".to_owned()=>Value::Success(signature),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
+            "authority".to_owned() => Value::Keypair(authority.into()),
         };
 
         Ok(outputs)
