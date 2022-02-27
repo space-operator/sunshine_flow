@@ -1,7 +1,7 @@
 use indradb::{EdgeKey, Type};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
-use std::convert::TryFrom;
+use std::{collections::HashMap, convert::TryFrom};
 use uuid::Uuid;
 
 // this map can't contain Objects
@@ -48,6 +48,7 @@ pub enum QueryKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Graph {
     pub nodes: Vec<Node>,
+    pub edges: HashMap<Uuid, Properties>,
     pub state_id: u64,
 }
 

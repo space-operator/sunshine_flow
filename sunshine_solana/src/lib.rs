@@ -1,3 +1,4 @@
+use commands::solana::nft::create_metadata_accounts::NftUses;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
@@ -433,7 +434,7 @@ impl FlowContext {
                         }
                     };
                     for tx in txs {
-                        tx.send(val.clone()).unwrap();
+                        tx.send(val.clone()).ok();
                     }
                 }
             };
@@ -480,6 +481,7 @@ pub enum Value {
     NodeIdOpt(Option<NodeId>),
     NftCreators(Vec<NftCreator>),
     MetadataAccountData(MetadataAccountData),
+    Uses(NftUses),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -521,6 +523,7 @@ impl Value {
             Value::NodeIdOpt(_) => ValueKind::NodeIdOpt,
             Value::NftCreators(_) => ValueKind::NftCreators,
             Value::MetadataAccountData(_) => ValueKind::MetadataAccountData,
+            Value::Uses(_) => ValueKind::Uses,
         }
     }
 }
@@ -565,6 +568,7 @@ pub enum ValueKind {
     NodeIdOpt,
     NftCreators,
     MetadataAccountData,
+    Uses,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

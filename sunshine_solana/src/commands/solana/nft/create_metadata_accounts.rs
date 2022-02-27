@@ -201,7 +201,10 @@ impl CreateMetadataAccounts {
 
         let uses = match self.uses.clone() {
             Some(uses) => uses,
-            _ => return Err(Error::ArgumentNotFound("uses".to_string())),
+            None => match inputs.remove("uses") {
+                Some(Value::Uses(uses)) => Some(uses),
+                _ => return Err(Error::ArgumentNotFound("uses".to_string())),
+            },
         };
 
         let creators = if creators.is_empty() {

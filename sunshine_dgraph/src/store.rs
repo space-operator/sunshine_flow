@@ -162,6 +162,7 @@ impl Datastore for Store {
         Ok(Graph {
             state_id: node.properties.get("state_id").unwrap().as_u64().unwrap(),
             nodes,
+            edges: todo!(),
         })
     }
 

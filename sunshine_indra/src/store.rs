@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
@@ -158,7 +159,7 @@ impl Datastore for DB {
             .iter()
             .map(|edge| async { self.read_node(edge.to).await });
 
-        let nodes = futures::future::try_join_all(nodes).await?;
+        let nodes: Vec<Node> = futures::future::try_join_all(nodes).await?;
 
         let state_id = graph_node
             .properties
@@ -167,7 +168,25 @@ impl Datastore for DB {
             .as_u64()
             .unwrap();
 
-        Ok(Graph { nodes, state_id })
+        let mut edges = HashMap::new();
+
+        for node in nodes.iter() {
+            for &edge in node.inbound_edges.iter().chain(node.outbound_edges.iter()) {
+                if edges.contains_key(&edge.id) {
+                    continue;
+                }
+
+                let properties = self.read_edge_properties(edge).await?;
+
+                edges.insert(edge.id, properties);
+            }
+        }
+
+        Ok(Graph {
+            nodes,
+            state_id,
+            edges,
+        })
     }
 
     async fn create_node_with_id(
