@@ -35,7 +35,14 @@ impl HttpRequest {
             },
         };
 
-        let auth_token = self.auth_token.as_ref();
+        let auth_token = match self.auth_token.as_ref() {
+            Some(auth_token) => Some(auth_token),
+            None => match inputs.get("auth_token") {
+                Some(Value::String(ref s)) => Some(s),
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("auth_token".to_string())),
+            },
+        };
 
         let method = Method::from_bytes(method.as_bytes()).map_err(|_| Error::InvalidHttpMethod)?;
 

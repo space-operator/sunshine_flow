@@ -393,18 +393,31 @@ impl FlowContext {
                 )
                 .await;
 
+                let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
                 let outputs = match run_command(&node.cmd, inputs.clone()).await {
                     Ok(outputs) => outputs,
                     Err(e) => {
                         append_log(db.clone(), format!("failed to run command: {:#?}", e), true)
                             .await;
+                        props.insert("error".into(), JsonValue::String(format!("{:#?}", e)));
                         return;
                     }
                 };
 
-                let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
-
                 props.insert("success".into(), JsonValue::Bool(true));
+
+                if let Some(output) = outputs.get("__print_output") {
+                    let output = match output {
+                        Value::String(output) => output,
+                        _ => unreachable!(),
+                    };
+
+                    props.insert(
+                        "__print_output".to_owned(),
+                        JsonValue::String(output.clone()),
+                    );
+                }
 
                 if let Err(e) = db
                     .update_node((node.log_node_id, props), log_graph_id)

@@ -68,6 +68,7 @@ impl Transfer {
         };
 
         let sender = match self.sender {
+            //TODOrename sender_account
             Some(s) => match s {
                 Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
                 None => None,
@@ -114,6 +115,7 @@ impl Transfer {
                 Some(Value::StringOpt(s)) => s,
                 Some(Value::String(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };

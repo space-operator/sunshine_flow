@@ -74,6 +74,7 @@ impl CreateMasterEdition {
             Arg::None => match inputs.remove("max_supply") {
                 Some(Value::U64(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("max_supply".to_string())),
             },
         };

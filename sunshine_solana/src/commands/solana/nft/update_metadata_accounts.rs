@@ -92,6 +92,7 @@ impl UpdateMetadataAccounts {
                 Some(Value::NodeId(s)) => Some(ctx.get_pubkey_by_id(s).await?),
                 Some(Value::Pubkey(k)) => Some(k),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("new_update_authority".to_string())),
             },
         };
@@ -101,6 +102,7 @@ impl UpdateMetadataAccounts {
             None => match inputs.remove("data") {
                 Some(Value::MetadataAccountData(data)) => Some(data.into()),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("data".to_string())),
             },
         };
@@ -110,6 +112,7 @@ impl UpdateMetadataAccounts {
             None => match inputs.remove("primary_sale_happened") {
                 Some(Value::Bool(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("primary_sale_happened".to_string())),
             },
         };
@@ -119,6 +122,7 @@ impl UpdateMetadataAccounts {
             None => match inputs.remove("is_mutable") {
                 Some(Value::Bool(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("is_mutable".to_string())),
             },
         };

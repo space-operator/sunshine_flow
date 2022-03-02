@@ -36,6 +36,7 @@ impl GenerateKeypair {
             Arg::None => match inputs.remove("seed_phrase") {
                 Some(Value::String(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("seed_phrase".to_string())),
             },
         };
@@ -45,6 +46,7 @@ impl GenerateKeypair {
             None => match inputs.remove("passphrase") {
                 Some(Value::String(s)) => s,
                 Some(Value::Empty) => String::new(),
+                None => String::new(),
                 _ => return Err(Error::ArgumentNotFound("passphrase".to_string())),
             },
         };
@@ -54,6 +56,7 @@ impl GenerateKeypair {
             Arg::None => match inputs.remove("save") {
                 Some(Value::String(s)) => Some(s),
                 Some(Value::Empty) => None,
+                None => None,
                 _ => return Err(Error::ArgumentNotFound("save".to_string())),
             },
         };

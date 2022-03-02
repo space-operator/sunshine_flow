@@ -35,9 +35,13 @@ impl Command {
                     .get("print")
                     .ok_or_else(|| Error::ArgumentNotFound("print".into()))?;
 
-                println!("{:#?}", arg);
+                let to_print = format!("{:#?}", arg);
 
-                Ok(inputs)
+                println!("{}", to_print);
+
+                Ok(hashmap! {
+                    "__print_output".into() => Value::String(to_print),
+                })
             }
             Command::HttpRequest(c) => c.run(inputs).await,
             Command::JsonExtract(c) => c.run(inputs).await,

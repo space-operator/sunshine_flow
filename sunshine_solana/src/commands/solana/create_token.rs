@@ -66,6 +66,7 @@ impl CreateToken {
             None => match inputs.remove("memo") {
                 Some(Value::String(s)) => s,
                 Some(Value::Empty) => String::new(),
+                None => String::new(),
                 _ => return Err(Error::ArgumentNotFound("memo".to_string())),
             },
         };
