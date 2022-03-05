@@ -9,6 +9,7 @@ use solana_sdk::signature::Keypair;
 use crate::{Error, Value};
 
 pub mod http_request;
+pub mod ipfs_nft_upload;
 pub mod ipfs_upload;
 pub mod json_extract;
 
@@ -19,6 +20,7 @@ pub enum Command {
     HttpRequest(http_request::HttpRequest),
     JsonExtract(json_extract::JsonExtract),
     IpfsUpload(ipfs_upload::IpfsUpload),
+    IpfsNftUpload(ipfs_nft_upload::IpfsNftUpload),
 }
 
 impl Command {
@@ -46,6 +48,7 @@ impl Command {
             Command::HttpRequest(c) => c.run(inputs).await,
             Command::JsonExtract(c) => c.run(inputs).await,
             Command::IpfsUpload(c) => c.run(inputs).await,
+            Command::IpfsNftUpload(c) => c.run(inputs).await,
         }
     }
 
@@ -56,6 +59,7 @@ impl Command {
             Command::HttpRequest(_) => CommandKind::HttpRequest,
             Command::JsonExtract(_) => CommandKind::JsonExtract,
             Command::IpfsUpload(_) => CommandKind::IpfsUpload,
+            Command::IpfsNftUpload(_) => CommandKind::IpfsNftUpload,
         }
     }
 }
@@ -67,4 +71,5 @@ pub enum CommandKind {
     HttpRequest,
     JsonExtract,
     IpfsUpload,
+    IpfsNftUpload,
 }

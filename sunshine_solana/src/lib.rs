@@ -395,17 +395,35 @@ impl FlowContext {
 
                 let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
 
+                props.insert("running".into(), JsonValue::Bool(true));
+
+                if let Err(e) = db
+                    .update_node((node.log_node_id, props.clone()), log_graph_id)
+                    .await
+                {
+                    eprintln!("failed to update log node for command: {}", e);
+                };
+
                 let outputs = match run_command(&node.cmd, inputs.clone()).await {
                     Ok(outputs) => outputs,
                     Err(e) => {
                         append_log(db.clone(), format!("failed to run command: {:#?}", e), true)
                             .await;
                         props.insert("error".into(), JsonValue::String(format!("{:#?}", e)));
+                        props.insert("success".into(), JsonValue::Bool(false));
+                        props.remove("running").unwrap();
+                        if let Err(e) = db
+                            .update_node((node.log_node_id, props), log_graph_id)
+                            .await
+                        {
+                            eprintln!("failed to update log node for command: {}", e);
+                        };
                         return;
                     }
                 };
 
                 props.insert("success".into(), JsonValue::Bool(true));
+                props.remove("running").unwrap();
 
                 if let Some(output) = outputs.get("__print_output") {
                     let output = match output {
@@ -495,6 +513,47 @@ pub enum Value {
     NftCreators(Vec<NftCreator>),
     MetadataAccountData(MetadataAccountData),
     Uses(NftUses),
+    NftMetadata(NftMetadata),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftMetadata {
+    pub name: String,
+    pub symbol: String,
+    pub description: String,
+    pub seller_fee_basis_points: u16,
+    pub image: String,
+    pub animation_url: Option<String>,
+    pub external_url: Option<String>,
+    pub attributes: Vec<NftMetadataAttribute>,
+    pub collection: Option<NftMetadataCollection>,
+    pub properties: NftMetadataProperties,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftMetadataAttribute {
+    pub trait_type: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftMetadataCollection {
+    pub name: String,
+    pub family: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftMetadataProperties {
+    pub files: Vec<NftMetadataFile>,
+    pub category: Option<String>,
+    pub creators: Vec<NftCreator>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NftMetadataFile {
+    pub uri: String,
+    #[serde(rename = "type")]
+    pub kind: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -537,6 +596,7 @@ impl Value {
             Value::NftCreators(_) => ValueKind::NftCreators,
             Value::MetadataAccountData(_) => ValueKind::MetadataAccountData,
             Value::Uses(_) => ValueKind::Uses,
+            Value::NftMetadata(_) => ValueKind::NftMetadata,
         }
     }
 }
@@ -582,6 +642,7 @@ pub enum ValueKind {
     NftCreators,
     MetadataAccountData,
     Uses,
+    NftMetadata,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
