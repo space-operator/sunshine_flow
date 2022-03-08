@@ -716,6 +716,7 @@ async fn main() {
             seed_phrase: solana::generate_keypair::Arg::Some(None),
             passphrase: Some("123123".into()),
             save: solana::generate_keypair::Arg::Some(None),
+            base58_str: solana::generate_keypair::Arg::Some(None),
         })),
         true,
         vec![],

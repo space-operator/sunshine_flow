@@ -75,7 +75,7 @@ pub enum Error {
 
 impl From<arloader::error::Error> for Error {
     fn from(err: arloader::error::Error) -> Error {
-        Error::ArLoader(err.to_string())
+        Error::ArLoader(format!("{:#?}", err))
     }
 }
 

@@ -60,6 +60,7 @@ impl ArweaveUpload {
             },
         };
 
+        /*
         let ar_sol_dev_wallet_address = Provider::from_keypair_path(PathBuf::from(
             "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json",
         ))
@@ -67,10 +68,19 @@ impl ArweaveUpload {
         .wallet_address()
         .unwrap()
         .to_string();
+        */
 
-        let mut arweave = Arweave::default();
-        arweave.base_url =
-            url::Url::parse("http://localhost:1984/mint/{}/100000000000000").unwrap();
+        println!("@@@@ SOLANA NET: {}", ctx.solana_url.clone());
+
+        let arweave = Arweave {
+            name: String::from("arweave"),
+            units: String::from("sol"),
+            base_url: url::Url::parse("https://arweave.net/").unwrap(),
+            crypto: arloader::crypto::Provider::from_keypair_path(
+                "/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
+            )
+            .await?,
+        };
 
         let price_terms = arweave.get_price_terms(reward_mult).await?;
 
@@ -82,7 +92,7 @@ impl ArweaveUpload {
                 None,
                 price_terms,
                 ctx.solana_url.clone(),
-                ctx.solana_arweave_url.clone(),
+                url::Url::parse("https://arloader.io/sol").unwrap(), //ctx.solana_arweave_url.clone(),
                 &fee_payer,
             )
             .await?;
@@ -94,6 +104,7 @@ impl ArweaveUpload {
                     return Err(Error::ArweaveTxNotFound(status.id.to_string()))
                 }
                 StatusCode::Submitted | StatusCode::Pending => {
+                    println!("{:#?}", status);
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     status = arweave.get_status(&status.id).await?;
                 }
@@ -108,6 +119,35 @@ impl ArweaveUpload {
         Ok(outputs)
     }
 }
+
+/*Pubkey(
+    7W3KHiYzPZjy2Be4NyZQi1PDQE152MXrBbivYKGLsmrS,
+
+
+String(
+    "https://arweave.net/gTIG7MIVcr9L6DqVkexR_NKabFQyNY-4etFNdb4_5p4",
+)
+
+String(
+    "https://arweave.net/pdLxCd70TA53XkHvCTUOegChg0L5HhYBw3ZW-oaGl7M",
+)
+Pubkey(
+    HotvYPToAptDRtK1j1oKHnBCeFsXjYrB2jetV2hsw48P,
+)
+*/
+// Retrying Solana transaction (1 of 10)...
+// Retrying Solana transaction (2 of 10)...
+// Retrying Solana transaction (3 of 10)...
+// Retrying Solana transaction (4 of 10)...
+// Retrying Solana transaction (5 of 10)...
+// Retrying Solana transaction (6 of 10)...
+// Retrying Solana transaction (7 of 10)...
+// Retrying Solana transaction (8 of 10)...
+// Retrying Solana transaction (9 of 10)...
+// Retrying Solana transaction (10 of 10)...
+// There was a problem with the Solana network. Please try again later or use AR.
+// run status: String("Solana(\n    Nft(\n        ArweaveUpload,\n    ),\n)"), RunStatusEntry { success: false, error: Some("ArLoader(\n    \"solana network error\",\n)"), print_output: None, running: false }
+// refresh
 
 // https://github.com/ArweaveTeam/arweave/releases/tag/N.2.5.1.0
 // https://stackoverflow.com/questions/62707041/clang-format-not-working-in-vim-missing-libtinfo-so-5-library

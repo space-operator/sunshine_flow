@@ -15,6 +15,7 @@ use super::Ctx;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenerateKeypair {
     pub seed_phrase: Arg,
+    pub base58_str: Arg,
     pub passphrase: Option<String>,
     pub save: Arg,
 }
@@ -41,6 +42,16 @@ impl GenerateKeypair {
             },
         };
 
+        let base58_str: Option<String> = match self.base58_str.clone() {
+            Arg::Some(val) => val,
+            Arg::None => match inputs.remove("base58_str") {
+                Some(Value::String(s)) => Some(s),
+                Some(Value::Empty) => None,
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("base58_str".to_string())),
+            },
+        };
+
         let passphrase = match &self.passphrase {
             Some(s) => s.clone(),
             None => match inputs.remove("passphrase") {
@@ -61,7 +72,11 @@ impl GenerateKeypair {
             },
         };
 
-        let keypair = generate_keypair(&passphrase, seed_phrase)?;
+        let keypair = if let Some(base58_str) = base58_str {
+            Keypair::from_base58_string(&base58_str)
+        } else {
+            generate_keypair(&passphrase, seed_phrase)?
+        };
 
         let mut node_id = None;
 
