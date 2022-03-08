@@ -2,6 +2,7 @@ use commands::solana::nft::create_metadata_accounts::NftUses;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
 use solana_sdk::signer::Signer;
+use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -491,28 +492,49 @@ pub enum Schedule {
     Interval(Duration),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::Display)]
 pub enum Value {
+    #[display(fmt = "{}", _0)]
     Integer(i64),
+    #[display(fmt = "{}", _0)]
     Keypair(WrappedKeypair),
+    #[display(fmt = "{}", _0)]
     String(String),
+    #[display(fmt = "{}", _0)]
     NodeId(Uuid),
+    #[display(fmt = "{}", _0)]
     DeletedNode(Uuid),
+    #[display(fmt = "{}", _0)]
     Pubkey(Pubkey),
+    #[display(fmt = "{}", _0)]
     Success(Signature),
+    #[display(fmt = "{}", _0)]
     Balance(u64),
+    #[display(fmt = "{}", _0)]
     U8(u8),
+    #[display(fmt = "{}", _0)]
     U16(u16),
+    #[display(fmt = "{}", _0)]
     U64(u64),
+    #[display(fmt = "{}", _0)]
     F32(f32),
+    #[display(fmt = "{}", _0)]
     F64(f64),
+    #[display(fmt = "{}", _0)]
     Bool(bool),
+    #[display(fmt = "{:?}", _0)]
     StringOpt(Option<String>),
+    #[display(fmt = "empty")]
     Empty,
+    #[display(fmt = "{:?}", _0)]
     NodeIdOpt(Option<NodeId>),
+    #[display(fmt = "{:?}", _0)]
     NftCreators(Vec<NftCreator>),
+    #[display(fmt = "{:?}", _0)]
     MetadataAccountData(MetadataAccountData),
+    #[display(fmt = "{:?}", _0)]
     Uses(NftUses),
+    #[display(fmt = "{:?}", _0)]
     NftMetadata(NftMetadata),
 }
 
@@ -645,7 +667,7 @@ pub enum ValueKind {
     NftMetadata,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, derive_more::Display)]
 pub struct WrappedKeypair(String);
 
 impl From<Keypair> for WrappedKeypair {

@@ -16,7 +16,6 @@ use arloader::{commands::command_upload_nfts, status::StatusCode};
 
 use sunshine_core::msg::NodeId;
 
-use crate::commands::solana::SolanaNet;
 use crate::{Error, Value};
 
 use solana_sdk::signer::keypair::write_keypair_file;
@@ -27,8 +26,7 @@ use arloader::Arweave;
 pub struct ArweaveUpload {
     pub fee_payer: Option<NodeId>,
     pub reward_mult: Option<f32>,
-    pub file_path: Option<String>,
-    pub arweave_key_path: Option<String>,
+    pub metadata: Option<NftMetadata>,
 }
 
 impl ArweaveUpload {
@@ -62,59 +60,42 @@ impl ArweaveUpload {
             },
         };
 
-        let arweave_key_path = match &self.arweave_key_path {
-            Some(s) => s.clone(),
-            None => match inputs.remove("arweave_key_path") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("arweave_key_path".to_string())),
-            },
+        /*
+        let ar_sol_dev_wallet_address = Provider::from_keypair_path(PathBuf::from(
+            "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json",
+        ))
+        .await?
+        .wallet_address()
+        .unwrap()
+        .to_string();
+        */
+
+        println!("@@@@ SOLANA NET: {}", ctx.solana_url.clone());
+
+        let arweave = Arweave {
+            name: String::from("arweave"),
+            units: String::from("sol"),
+            base_url: url::Url::parse("https://arweave.net/").unwrap(),
+            crypto: arloader::crypto::Provider::from_keypair_path(
+                "/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
+            )
+            .await?,
         };
 
-        let (arweave, mut status) = match ctx.solana_net {
-            SolanaNet::Mainnet => {
-                let arweave = Arweave {
-                    name: String::from("arweave"),
-                    units: String::from("sol"),
-                    base_url: url::Url::parse("https://arweave.net/").unwrap(),
-                    crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
-                        .await?,
-                };
+        let price_terms = arweave.get_price_terms(reward_mult).await?;
 
-                let price_terms = arweave.get_price_terms(reward_mult).await?;
-
-                let status = arweave
-                    .upload_file_from_path_with_sol(
-                        file_path.into(),
-                        None,
-                        None,
-                        None,
-                        price_terms,
-                        ctx.solana_net.url(),
-                        url::Url::parse("https://arloader.io/sol").unwrap(),
-                        &fee_payer,
-                    )
-                    .await?;
-
-                (arweave, status)
-            }
-            _ => {
-                let arweave = Arweave {
-                    name: String::from("arweave"),
-                    units: String::from("winstons"),
-                    base_url: url::Url::parse("https://arweave.net/").unwrap(),
-                    crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
-                        .await?,
-                };
-
-                let price_terms = arweave.get_price_terms(reward_mult).await?;
-
-                let status = arweave
-                    .upload_file_from_path(file_path.into(), None, None, None, price_terms)
-                    .await?;
-
-                (arweave, status)
-            }
-        };
+        let mut status = arweave
+            .upload_file_from_path_with_sol(
+                file_path.into(),
+                None,
+                None,
+                None,
+                price_terms,
+                ctx.solana_url.clone(),
+                url::Url::parse("https://arloader.io/sol").unwrap(), //ctx.solana_arweave_url.clone(),
+                &fee_payer,
+            )
+            .await?;
 
         loop {
             match status.status {
@@ -123,6 +104,7 @@ impl ArweaveUpload {
                     return Err(Error::ArweaveTxNotFound(status.id.to_string()))
                 }
                 StatusCode::Submitted | StatusCode::Pending => {
+                    println!("{:#?}", status);
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     status = arweave.get_status(&status.id).await?;
                 }

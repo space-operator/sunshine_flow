@@ -37,7 +37,7 @@ impl Command {
                     .get("print")
                     .ok_or_else(|| Error::ArgumentNotFound("print".into()))?;
 
-                let to_print = format!("{:#?}", arg);
+                let to_print = format!("{}", arg);
 
                 println!("{}", to_print);
 

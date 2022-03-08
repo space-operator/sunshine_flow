@@ -27,7 +27,7 @@ use sunshine_solana::commands::solana::nft::update_metadata_accounts::{
 use sunshine_solana::commands::solana::nft::utilize::Utilize;
 use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
 use sunshine_solana::commands::solana::transfer::Transfer;
-use sunshine_solana::commands::solana::{self, nft, Kind};
+use sunshine_solana::commands::solana::{self, nft, Kind, SolanaNet};
 use sunshine_solana::{
     commands, FlowContext, NftCreator, Schedule, COMMAND_MARKER, COMMAND_NAME_MARKER,
     CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
@@ -639,8 +639,7 @@ async fn main() {
     let mut props = serde_json::Map::new();
 
     let solana_context_config = solana::Config {
-        solana_url: "https://api.devnet.solana.com".into(),
-        solana_arweave_url: "https://arloader.io/dev".into(),
+        solana_net: SolanaNet::Devnet,
         wallet_graph: wallet_graph_id,
     };
 
@@ -1448,6 +1447,9 @@ async fn main() {
             fee_payer: None,
             reward_mult: Some(10.),
             file_path: Some("image.jpg".into()),
+            arweave_key_path: Some(
+                "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
+            ),
         }))),
         false,
         vec![

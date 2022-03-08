@@ -31,8 +31,7 @@ const PUBKEY_MARKER: &str = "PUBKEY_MARKER";
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Config {
-    pub solana_url: String,
-    pub solana_arweave_url: String,
+    pub solana_net: SolanaNet,
     pub wallet_graph: GraphId,
 }
 
@@ -40,18 +39,35 @@ pub struct Ctx {
     client: RpcClient,
     db: Arc<dyn Datastore>,
     wallet_graph: GraphId,
-    solana_url: Url,
-    solana_arweave_url: Url,
+    solana_net: SolanaNet,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, PartialEq)]
+pub enum SolanaNet {
+    Devnet,
+    Testnet,
+    Mainnet,
+}
+
+impl SolanaNet {
+    pub fn url(&self) -> Url {
+        let solana_url = match self {
+            SolanaNet::Devnet => "https://api.devnet.solana.com",
+            SolanaNet::Testnet => "https://api.testnet.solana.com",
+            SolanaNet::Mainnet => "https://api.mainnet-beta.solana.com",
+        };
+
+        Url::parse(solana_url).unwrap()
+    }
 }
 
 impl Ctx {
     pub fn new(cfg: Config, db: Arc<dyn Datastore>) -> Result<Ctx, Error> {
         Ok(Ctx {
-            client: RpcClient::new(cfg.solana_url.clone()),
+            client: RpcClient::new(cfg.solana_net.url()),
             wallet_graph: cfg.wallet_graph,
             db,
-            solana_url: Url::parse(&cfg.solana_url)?,
-            solana_arweave_url: Url::parse(&cfg.solana_arweave_url)?,
+            solana_net: cfg.solana_net,
         })
     }
 
