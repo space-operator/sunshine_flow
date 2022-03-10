@@ -29,6 +29,7 @@ pub struct ArweaveUpload {
     pub reward_mult: Option<f32>,
     pub file_path: Option<String>,
     pub arweave_key_path: Option<String>,
+    pub pay_with_solana: Option<bool>,
 }
 
 impl ArweaveUpload {
@@ -70,50 +71,56 @@ impl ArweaveUpload {
             },
         };
 
-        let (arweave, mut status) = match ctx.solana_net {
-            SolanaNet::Mainnet => {
-                let arweave = Arweave {
-                    name: String::from("arweave"),
-                    units: String::from("sol"),
-                    base_url: url::Url::parse("https://arweave.net/").unwrap(),
-                    crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
-                        .await?,
-                };
+        let pay_with_solana = match self.pay_with_solana {
+            Some(b) => b,
+            None => match inputs.remove("pay_with_solana") {
+                Some(Value::Bool(b)) => b,
+                Some(Value::Empty) => false,
+                _ => return Err(Error::ArgumentNotFound("pay_with_solana".to_string())),
+            },
+        };
 
-                let price_terms = arweave.get_price_terms(reward_mult).await?;
+        let (arweave, mut status) = if ctx.solana_net == SolanaNet::Mainnet || pay_with_solana {
+            let arweave = Arweave {
+                name: String::from("arweave"),
+                units: String::from("sol"),
+                base_url: url::Url::parse("https://arweave.net/").unwrap(),
+                crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
+                    .await?,
+            };
 
-                let status = arweave
-                    .upload_file_from_path_with_sol(
-                        file_path.into(),
-                        None,
-                        None,
-                        None,
-                        price_terms,
-                        ctx.solana_net.url(),
-                        url::Url::parse("https://arloader.io/sol").unwrap(),
-                        &fee_payer,
-                    )
-                    .await?;
+            let price_terms = arweave.get_price_terms(reward_mult).await?;
 
-                (arweave, status)
-            }
-            _ => {
-                let arweave = Arweave {
-                    name: String::from("arweave"),
-                    units: String::from("winstons"),
-                    base_url: url::Url::parse("https://arweave.net/").unwrap(),
-                    crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
-                        .await?,
-                };
+            let status = arweave
+                .upload_file_from_path_with_sol(
+                    file_path.into(),
+                    None,
+                    None,
+                    None,
+                    price_terms,
+                    SolanaNet::Mainnet.url(),
+                    url::Url::parse("https://arloader.io/sol").unwrap(),
+                    &fee_payer,
+                )
+                .await?;
 
-                let price_terms = arweave.get_price_terms(reward_mult).await?;
+            (arweave, status)
+        } else {
+            let arweave = Arweave {
+                name: String::from("arweave"),
+                units: String::from("winstons"),
+                base_url: url::Url::parse("https://arweave.net/").unwrap(),
+                crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into())
+                    .await?,
+            };
 
-                let status = arweave
-                    .upload_file_from_path(file_path.into(), None, None, None, price_terms)
-                    .await?;
+            let price_terms = arweave.get_price_terms(reward_mult).await?;
 
-                (arweave, status)
-            }
+            let status = arweave
+                .upload_file_from_path(file_path.into(), None, None, None, price_terms)
+                .await?;
+
+            (arweave, status)
         };
 
         loop {

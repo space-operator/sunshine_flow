@@ -317,6 +317,8 @@ impl FlowContext {
         flow_id: FlowId,
         stop_signal: watch::Receiver<u8>,
     ) -> Option<RunId> {
+        use std::time::Instant;
+
         let Flow {
             nodes,
             start_nodes,
@@ -347,6 +349,11 @@ impl FlowContext {
 
                 props.insert("name".to_owned(), JsonValue::String(node.name.clone()));
 
+                props.insert(
+                    "state".to_owned(),
+                    serde_json::to_value(&RunState::WaitingInputs).unwrap(),
+                );
+
                 if let Err(e) = db
                     .update_node((node.log_node_id, props), log_graph_id)
                     .await
@@ -354,16 +361,10 @@ impl FlowContext {
                     eprintln!("failed to update log node for command: {}", e);
                 };
 
-                let append_log = |db: Arc<dyn Datastore>, msg: String, fail: bool| async move {
-                    let time = chrono::offset::Utc::now().timestamp_millis().to_string();
-
+                let change_state = |db: Arc<dyn Datastore>, state: RunState| async move {
                     let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
 
-                    props.insert(time, JsonValue::String(msg));
-
-                    if fail {
-                        props.insert("success".into(), JsonValue::Bool(false));
-                    }
+                    props.insert("state".to_owned(), serde_json::to_value(state).unwrap());
 
                     if let Err(e) = db
                         .update_node((node.log_node_id, props.clone()), log_graph_id)
@@ -373,60 +374,56 @@ impl FlowContext {
                     }
                 };
 
-                append_log(db.clone(), "WAITING FOR INPUTS".into(), false).await;
-
                 for (name, mut rx) in node.inputs {
                     let input = match rx.recv().await {
                         Some(input) => input,
                         None => {
-                            append_log(db.clone(), "can't receive input, quitting".into(), true)
-                                .await;
+                            change_state(
+                                db.clone(),
+                                RunState::Failed(0, "can't receive input, quitting".into()),
+                            )
+                            .await;
                             return;
                         }
                     };
                     inputs.insert(name, input);
                 }
 
-                append_log(
-                    db.clone(),
-                    format!("starting to execute with inputs: {:#?}", &inputs),
-                    false,
-                )
-                .await;
-
-                let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
-
-                props.insert("running".into(), JsonValue::Bool(true));
-
-                if let Err(e) = db
-                    .update_node((node.log_node_id, props.clone()), log_graph_id)
-                    .await
                 {
-                    eprintln!("failed to update log node for command: {}", e);
-                };
+                    let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
+                    props.insert("inputs".to_owned(), serde_json::to_value(&inputs).unwrap());
+
+                    if let Err(e) = db
+                        .update_node((node.log_node_id, props.clone()), log_graph_id)
+                        .await
+                    {
+                        eprintln!("failed to update logs for command: {}", e);
+                    }
+                }
+
+                change_state(db.clone(), RunState::Running).await;
+
+                let start = Instant::now();
 
                 let outputs = match run_command(&node.cmd, inputs.clone()).await {
                     Ok(outputs) => outputs,
                     Err(e) => {
-                        append_log(db.clone(), format!("failed to run command: {:#?}", e), true)
-                            .await;
-                        props.insert("error".into(), JsonValue::String(format!("{:#?}", e)));
-                        props.insert("success".into(), JsonValue::Bool(false));
-                        props.remove("running").unwrap();
-                        if let Err(e) = db
-                            .update_node((node.log_node_id, props), log_graph_id)
-                            .await
-                        {
-                            eprintln!("failed to update log node for command: {}", e);
-                        };
+                        change_state(
+                            db.clone(),
+                            RunState::Failed(
+                                start.elapsed().as_millis() as u64,
+                                format!("failed to run command: {:#?}", e),
+                            ),
+                        )
+                        .await;
                         return;
                     }
                 };
 
-                props.insert("success".into(), JsonValue::Bool(true));
-                props.remove("running").unwrap();
-
                 if let Some(output) = outputs.get("__print_output") {
+                    let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
+
                     let output = match output {
                         Value::String(output) => output,
                         _ => unreachable!(),
@@ -436,30 +433,25 @@ impl FlowContext {
                         "__print_output".to_owned(),
                         JsonValue::String(output.clone()),
                     );
+
+                    if let Err(e) = db
+                        .update_node((node.log_node_id, props.clone()), log_graph_id)
+                        .await
+                    {
+                        eprintln!("failed to update logs for command: {}", e);
+                    }
                 }
-
-                if let Err(e) = db
-                    .update_node((node.log_node_id, props), log_graph_id)
-                    .await
-                {
-                    eprintln!("failed to update log node for command: {}", e);
-                };
-
-                append_log(
-                    db.clone(),
-                    "finished execution, writing outputs".into(),
-                    false,
-                )
-                .await;
 
                 for (name, txs) in node.outputs.into_iter() {
                     let val = match outputs.get(&name) {
                         Some(val) => val.clone(),
                         None => {
-                            append_log(
+                            change_state(
                                 db.clone(),
-                                format!("output with name {} not found", name),
-                                true,
+                                RunState::Failed(
+                                    start.elapsed().as_millis() as u64,
+                                    format!("output with name {} not found", name),
+                                ),
                             )
                             .await;
                             return;
@@ -469,6 +461,12 @@ impl FlowContext {
                         tx.send(val.clone()).ok();
                     }
                 }
+
+                change_state(
+                    db.clone(),
+                    RunState::Success(start.elapsed().as_millis() as u64),
+                )
+                .await;
             };
 
             tokio::spawn(async move {
@@ -487,6 +485,14 @@ impl FlowContext {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RunState {
+    WaitingInputs,
+    Running,
+    Failed(u64, String),
+    Success(u64),
+}
+
 pub enum Schedule {
     Once,
     Interval(Duration),
@@ -495,7 +501,7 @@ pub enum Schedule {
 #[derive(Debug, Clone, Serialize, Deserialize, derive_more::Display)]
 pub enum Value {
     #[display(fmt = "{}", _0)]
-    Integer(i64),
+    I64(i64),
     #[display(fmt = "{}", _0)]
     Keypair(WrappedKeypair),
     #[display(fmt = "{}", _0)]
@@ -598,7 +604,7 @@ impl From<NftCreator> for Creator {
 impl Value {
     fn kind(&self) -> ValueKind {
         match self {
-            Value::Integer(_) => ValueKind::Integer,
+            Value::I64(_) => ValueKind::Integer,
             Value::Keypair(_) => ValueKind::Keypair,
             Value::String(_) => ValueKind::String,
             Value::NodeId(_) => ValueKind::NodeId,

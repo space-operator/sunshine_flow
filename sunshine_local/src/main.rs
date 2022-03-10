@@ -1450,6 +1450,7 @@ async fn main() {
             arweave_key_path: Some(
                 "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
             ),
+            pay_with_solana: None,
         }))),
         false,
         vec![

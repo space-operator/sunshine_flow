@@ -76,9 +76,9 @@ checksum = "159bb86af3a200e19a068f4224eae4c8bb2d0fa054c7e5d1cacd5cef95e684cd"
 
 [[package]]
 name = "arloader"
-version = "0.1.59"
+version = "0.1.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98b0b661e970055650b7078f05ed0514389588a4534906a68effd14ee140df5a"
+checksum = "731c26cddca26398aedb14dab2d2ee8b2ffbc34cce0a89432b8ead1235b8b2df"
 dependencies = [
  "avro-rs",
  "base64 0.13.0",
