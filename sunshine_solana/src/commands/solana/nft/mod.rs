@@ -5,6 +5,7 @@ use super::Ctx;
 use crate::{error::Error, Value};
 
 pub mod approve_use_authority;
+pub mod arweave_nft_upload;
 pub mod arweave_upload;
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
@@ -21,6 +22,7 @@ pub enum Command {
     ApproveUseAuthority(approve_use_authority::ApproveUseAuthority),
     GetLeftUses(get_left_uses::GetLeftUses),
     ArweaveUpload(arweave_upload::ArweaveUpload),
+    ArweaveNftUpload(arweave_nft_upload::ArweaveNftUpload),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -32,6 +34,7 @@ pub enum CommandKind {
     ApproveUseAuthority,
     GetLeftUses,
     ArweaveUpload,
+    ArweaveNftUpload,
 }
 
 impl Command {
@@ -48,6 +51,7 @@ impl Command {
             Command::ApproveUseAuthority(k) => k.run(ctx, inputs).await,
             Command::GetLeftUses(k) => k.run(ctx, inputs).await,
             Command::ArweaveUpload(k) => k.run(ctx, inputs).await,
+            Command::ArweaveNftUpload(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -60,6 +64,7 @@ impl Command {
             Command::ApproveUseAuthority(_) => CommandKind::ApproveUseAuthority,
             Command::GetLeftUses(_) => CommandKind::GetLeftUses,
             Command::ArweaveUpload(_) => CommandKind::ArweaveUpload,
+            Command::ArweaveNftUpload(_) => CommandKind::ArweaveNftUpload,
         }
     }
 }
