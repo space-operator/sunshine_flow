@@ -90,7 +90,7 @@ impl MintToken {
             minimum_balance_for_rent_exemption,
         )?;
 
-        let mut outputs = hashmap! {
+        let outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
             "token".to_owned()=> Value::Pubkey(token.pubkey()),
         };

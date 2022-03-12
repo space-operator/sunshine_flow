@@ -7,7 +7,7 @@ use spl_token::instruction::transfer_checked;
 use std::{collections::HashMap, sync::Arc};
 use sunshine_core::msg::NodeId;
 
-use crate::{error::Error, CommandResult, Value};
+use crate::{error::Error, Value};
 
 use super::instructions::execute;
 use super::mint_token::resolve_mint_info;

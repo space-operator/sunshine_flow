@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use solana_sdk::signature::Signer;
 
 use maplit::hashmap;
-use solana_sdk::signature::Keypair;
 
 use crate::{Error, Value};
 
@@ -26,7 +24,7 @@ pub enum Command {
 impl Command {
     pub(crate) async fn run(
         &self,
-        mut inputs: HashMap<String, Value>,
+        inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         match self {
             Command::Const(c) => Ok(hashmap! {
