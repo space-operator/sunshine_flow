@@ -22,8 +22,6 @@ use crate::{Error, NftMetadata, Value};
 
 use solana_sdk::signer::keypair::write_keypair_file;
 
-use tempdir::TempDir;
-
 use arloader::Arweave;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -83,13 +81,7 @@ impl ArweaveNftUpload {
             },
         };
 
-        let tmp_dir = TempDir::new("sunshine_solana_junk").unwrap();
-
-        let metadata_file_path = format!(
-            "{}/{}",
-            tmp_dir.path().to_str().unwrap(),
-            uuid::Uuid::new_v4()
-        );
+        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
 
         let file_map: Arc<DashMap<String, String>> = Arc::new(DashMap::new());
 
@@ -128,10 +120,14 @@ impl ArweaveNftUpload {
             file.uri = upload_file_with_cache(&fee_payer, &arweave_key_path, &file.uri).await?;
         }
 
-        tokio::fs::write(&metadata_file_path, serde_json::to_vec(&metadata).unwrap()).await?;
+        tokio::fs::write(&tmpfile.path(), serde_json::to_vec(&metadata).unwrap()).await?;
 
-        let metadata_url =
-            upload_file_with_cache(&fee_payer, &arweave_key_path, &metadata_file_path).await?;
+        let metadata_url = upload_file_with_cache(
+            &fee_payer,
+            &arweave_key_path,
+            tmpfile.path().to_str().unwrap(),
+        )
+        .await?;
 
         let outputs = hashmap! {
             "metadata_url".to_owned()=> Value::String(metadata_url),

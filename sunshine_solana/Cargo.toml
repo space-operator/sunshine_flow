@@ -37,7 +37,7 @@ rand = "0.8.5"
 #indradb = "2.2.0"
 #zstd-sys = "1.4.17+zstd.1.4.5"
 derive_more = "0.99.17"
-tempdir = "0.3.7"
+tempfile = "3.3.0"
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
