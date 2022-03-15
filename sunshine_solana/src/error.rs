@@ -1,4 +1,5 @@
 use crate::ValueKind;
+use bundlr_sdk::error::BundlrError;
 use solana_client::client_error::ClientError as SolanaClientError;
 use solana_sdk::program_error::ProgramError as SolanaProgramError;
 use solana_sdk::pubkey::ParsePubkeyError;
@@ -71,6 +72,18 @@ pub enum Error {
     NoFilename,
     #[error("invalid filename")]
     InvalidFilename,
+    #[error("mime type not found")]
+    MimeTypeNotFound,
+    #[error("bundlr error: {0}")]
+    Bundlr(BundlrError),
+    #[error("bundlr isn't awailable on solana testnet")]
+    BundlrNotAvailableOnTestnet,
+}
+
+impl From<BundlrError> for Error {
+    fn from(err: BundlrError) -> Error {
+        Error::Bundlr(err)
+    }
 }
 
 impl From<arloader::error::Error> for Error {

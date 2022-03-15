@@ -540,7 +540,7 @@ pub enum Value {
     MetadataAccountData(MetadataAccountData),
     #[display(fmt = "{:?}", _0)]
     Uses(NftUses),
-    #[display(fmt = "{:?}", _0)]
+    #[display(fmt = "{}", _0)]
     NftMetadata(NftMetadata),
 }
 
@@ -556,6 +556,12 @@ pub struct NftMetadata {
     pub attributes: Vec<NftMetadataAttribute>,
     pub collection: Option<NftMetadataCollection>,
     pub properties: NftMetadataProperties,
+}
+
+impl fmt::Display for NftMetadata {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&serde_json::to_string(&self).unwrap())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
