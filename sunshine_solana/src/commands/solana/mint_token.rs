@@ -93,6 +93,7 @@ impl MintToken {
         let outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
             "token".to_owned()=> Value::Pubkey(token.pubkey()),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
 
         Ok(outputs)
@@ -105,7 +106,10 @@ pub(crate) fn resolve_mint_info(
     client: &RpcClient,
     token_account: &Pubkey,
 ) -> Result<(Pubkey, u8), Error> {
-    let source_account = client.get_token_account(token_account).unwrap().unwrap();
+    let source_account = client
+        .get_token_account(token_account)
+        .map_err(|_| Error::RecipientIsntATokenAccount)?
+        .ok_or(Error::RecipientIsntATokenAccount)?;
     let source_mint = Pubkey::from_str(&source_account.mint).unwrap();
     Ok((source_mint, source_account.token_amount.decimals))
 }

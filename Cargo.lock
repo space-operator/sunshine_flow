@@ -259,9 +259,9 @@ checksum = "159bb86af3a200e19a068f4224eae4c8bb2d0fa054c7e5d1cacd5cef95e684cd"
 
 [[package]]
 name = "arloader"
-version = "0.1.60"
+version = "0.1.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "731c26cddca26398aedb14dab2d2ee8b2ffbc34cce0a89432b8ead1235b8b2df"
+checksum = "f076c0ffdedf62c1920440679533b152afbb605de319001e95d9205b7b139cf2"
 dependencies = [
  "avro-rs",
  "base64 0.13.0",
@@ -961,6 +961,17 @@ dependencies = [
  "cfg-if",
  "num_cpus",
  "rayon",
+]
+
+[[package]]
+name = "dashmap"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c8858831f7781322e539ea39e72449c46b059638250c14344fec8d0aa6e539c"
+dependencies = [
+ "cfg-if",
+ "num_cpus",
+ "parking_lot 0.12.0",
 ]
 
 [[package]]
@@ -2102,9 +2113,9 @@ dependencies = [
 
 [[package]]
 name = "mpl-token-metadata"
-version = "1.1.0"
+version = "1.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5e23f9f14cbd35ab82c471e7a024f617a8f65b0468fa2c8c7eb4def7ebaa18"
+checksum = "c8f072b3bd212fb020389e6d6244e4b35b99708193d063cf3844bac8c182ae8f"
 dependencies = [
  "arrayref",
  "borsh",
@@ -3659,7 +3670,7 @@ dependencies = [
  "byteorder",
  "bzip2",
  "crossbeam-channel",
- "dashmap",
+ "dashmap 4.0.2",
  "dir-diff",
  "enum-iterator",
  "flate2",
@@ -4026,7 +4037,7 @@ dependencies = [
  "borsh",
  "bundlr-sdk",
  "chrono",
- "dashmap",
+ "dashmap 5.2.0",
  "derive_more",
  "either",
  "futures",

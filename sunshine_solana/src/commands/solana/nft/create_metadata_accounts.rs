@@ -9,7 +9,9 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use sunshine_core::msg::NodeId;
 
-use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCreator, Value};
+use crate::{
+    commands::solana::instructions::execute, CommandResult, Error, NftCreator, NftMetadata, Value,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateMetadataAccounts {
@@ -17,14 +19,10 @@ pub struct CreateMetadataAccounts {
     pub token_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
-    pub name: Option<String>,
-    pub symbol: Option<String>,
     pub uri: Option<String>,
-    pub creators: Option<Vec<NftCreator>>,
-    pub seller_fee_basis_points: Option<u16>,
+    pub metadata: Option<NftMetadata>,
     pub update_authority_is_signer: Option<bool>,
     pub is_mutable: Option<bool>,
-    pub collection: Option<Option<NftCollection>>,
     pub uses: Option<Option<NftUses>>,
 }
 
@@ -119,21 +117,17 @@ impl CreateMetadataAccounts {
             },
         };
 
-        let name = match &self.name {
+        let mut metadata = match &self.metadata {
             Some(s) => s.clone(),
-            None => match inputs.remove("name") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("name".to_string())),
+            None => match inputs.remove("metadata") {
+                Some(Value::NftMetadata(s)) => s,
+                _ => return Err(Error::ArgumentNotFound("metadata".to_string())),
             },
         };
 
-        let symbol = match &self.symbol {
-            Some(s) => s.clone(),
-            None => match inputs.remove("symbol") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("symbol".to_string())),
-            },
-        };
+        let name = metadata.name;
+
+        let symbol = metadata.symbol;
 
         let uri = match &self.uri {
             Some(s) => s.clone(),
@@ -143,35 +137,13 @@ impl CreateMetadataAccounts {
             },
         };
 
-        let creators = match self.creators.clone() {
-            Some(s) => s,
-            None => match inputs.remove("creators") {
-                Some(Value::NftCreators(s)) => s,
-                Some(Value::Pubkey(address)) => vec![NftCreator {
-                    address,
-                    verified: true,
-                    share: 100,
-                }],
-                _ => return Err(Error::ArgumentNotFound("creators".to_string())),
-            },
-        };
-
-        let seller_fee_basis_points = match self.seller_fee_basis_points {
-            Some(s) => s,
-            None => match inputs.remove("seller_fee_basis_points") {
-                Some(Value::U16(s)) => s,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "seller_fee_basis_points".to_string(),
-                    ))
-                }
-            },
-        };
+        let seller_fee_basis_points = metadata.seller_fee_basis_points;
 
         let update_authority_is_signer = match self.update_authority_is_signer {
             Some(s) => s,
             None => match inputs.remove("update_authority_is_signer") {
                 Some(Value::Bool(s)) => s,
+                None => true,
                 _ => {
                     return Err(Error::ArgumentNotFound(
                         "update_authority_is_signer".to_string(),
@@ -184,18 +156,8 @@ impl CreateMetadataAccounts {
             Some(s) => s,
             None => match inputs.remove("is_mutable") {
                 Some(Value::Bool(s)) => s,
+                None => false,
                 _ => return Err(Error::ArgumentNotFound("is_mutable".to_string())),
-            },
-        };
-
-        let collection = match self.collection.clone() {
-            Some(collection) => collection,
-            None => match inputs.remove("collection") {
-                Some(Value::Pubkey(key)) => Some(NftCollection {
-                    key,
-                    verified: true,
-                }),
-                _ => None,
             },
         };
 
@@ -203,15 +165,32 @@ impl CreateMetadataAccounts {
             Some(uses) => uses,
             None => match inputs.remove("uses") {
                 Some(Value::Uses(uses)) => Some(uses),
+                None => None,
+                Some(Value::Empty) => None,
                 _ => return Err(Error::ArgumentNotFound("uses".to_string())),
             },
         };
 
-        let creators = if creators.is_empty() {
-            None
-        } else {
-            Some(creators.into_iter().map(NftCreator::into).collect())
-        };
+        let collection = metadata.collection.map(|c| Collection {
+            verified: c.verified,
+            key: c.key,
+        });
+
+        let creators = metadata
+            .properties
+            .map(|props| {
+                props
+                    .creators
+                    .map(|creators| {
+                        if creators.is_empty() {
+                            return None;
+                        }
+
+                        Some(creators.into_iter().map(NftCreator::into).collect())
+                    })
+                    .flatten()
+            })
+            .flatten();
 
         let program_id = mpl_token_metadata::id();
 

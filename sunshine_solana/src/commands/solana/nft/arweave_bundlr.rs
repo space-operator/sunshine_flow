@@ -59,8 +59,12 @@ impl ArweaveBundlr {
 
         metadata.image = uploader.upload_file(&metadata.image).await?;
 
-        for file in metadata.properties.files.iter_mut() {
-            file.uri = uploader.upload_file(&file.uri).await?;
+        if let Some(properties) = metadata.properties.as_mut() {
+            if let Some(mut files) = properties.files.as_mut() {
+                for file in files.iter_mut() {
+                    file.uri = uploader.upload_file(&file.uri).await?;
+                }
+            }
         }
 
         let metadata_url = uploader

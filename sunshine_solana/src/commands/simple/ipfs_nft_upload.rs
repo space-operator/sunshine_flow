@@ -52,11 +52,15 @@ impl IpfsNftUpload {
             upload_file(&pinata_url, &pinata_jwt, &metadata.image).await?
         );
 
-        for file in metadata.properties.files.iter_mut() {
-            file.uri = format!(
-                "ipfs://{}",
-                upload_file(&pinata_url, &pinata_jwt, &file.uri).await?
-            );
+        if let Some(properties) = metadata.properties.as_mut() {
+            if let Some(mut files) = properties.files.as_mut() {
+                for file in files.iter_mut() {
+                    file.uri = format!(
+                        "ipfs://{}",
+                        upload_file(&pinata_url, &pinata_jwt, &file.uri).await?
+                    );
+                }
+            }
         }
 
         let metadata_cid = upload_metadata(&pinata_url, &pinata_jwt, &metadata).await?;

@@ -555,7 +555,7 @@ pub struct NftMetadata {
     pub external_url: Option<String>,
     pub attributes: Vec<NftMetadataAttribute>,
     pub collection: Option<NftMetadataCollection>,
-    pub properties: NftMetadataProperties,
+    pub properties: Option<NftMetadataProperties>,
 }
 
 impl fmt::Display for NftMetadata {
@@ -574,13 +574,15 @@ pub struct NftMetadataAttribute {
 pub struct NftMetadataCollection {
     pub name: String,
     pub family: String,
+    pub key: Pubkey,
+    pub verified: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NftMetadataProperties {
-    pub files: Vec<NftMetadataFile>,
+    pub files: Option<Vec<NftMetadataFile>>,
     pub category: Option<String>,
-    pub creators: Vec<NftCreator>,
+    pub creators: Option<Vec<NftCreator>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -17,7 +17,6 @@ pub struct CreateMasterEdition {
     pub token_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
-    pub is_mutable: Option<bool>,
     pub max_supply: Arg,
 }
 

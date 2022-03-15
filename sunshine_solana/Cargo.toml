@@ -13,7 +13,7 @@ spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
 spl-memo = { version = "3.0.1", features = [ "no-entrypoint" ] }
 spl-associated-token-account = { version = "1.0.3", features = [ "no-entrypoint" ] }
 thiserror = "1.0.30"
-dashmap = "4.0.2"
+dashmap = "5.2.0"
 serde = { version = "1.0.130", features = [ "derive" ] }
 tokio = { version = "1.14.0", features = ["full"] }
 serde_json = "1.0.68"
@@ -23,12 +23,12 @@ maplit = "1.0.2"
 either = { version = "1.6.1", features = [ "serde" ] }
 uuid = { version = "0.8", features = ["v4"] }
 parse-display = "0.5.3"
-mpl-token-metadata = "1.1.0"
+mpl-token-metadata = "1.2.5"
 borsh = "0.9.1"
 chrono = "0.4.19"
 reqwest = { version = "0.11.9", features = [ "multipart" ] }
 base64 = "0.13.0"
-arloader = "0.1.60"
+arloader = "0.1.61"
 jsonwebkey = "0.3.4"
 ring = "0.16.20"
 url = "2.2.2"
@@ -44,9 +44,6 @@ mime_guess = "2.0.4"
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
 
-
 #[dependencies.solana-client]
 #git = "https://github.com/solana-labs/solana/"
 #rev = "2b0f16e7c378c14c8320b194d0963836343e52d2"
-
-

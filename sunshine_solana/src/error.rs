@@ -76,8 +76,10 @@ pub enum Error {
     MimeTypeNotFound,
     #[error("bundlr error: {0}")]
     Bundlr(BundlrError),
-    #[error("bundlr isn't awailable on solana testnet")]
+    #[error("bundlr isn't available on solana testnet")]
     BundlrNotAvailableOnTestnet,
+    #[error("recipient isn't isn't a token account")]
+    RecipientIsntATokenAccount,
 }
 
 impl From<BundlrError> for Error {
