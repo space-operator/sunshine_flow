@@ -36,7 +36,7 @@ pub(crate) fn execute(
     let needed = minimum_balance_for_rent_exemption + client.get_fee_for_message(&message)?;
 
     if balance < needed {
-        panic!("insufficient balance: have={}; needed={};", balance, needed);
+        return Err(Error::InsufficientSolanaBalance { balance, needed });
     }
 
     let mut transaction = Transaction::new_unsigned(message);

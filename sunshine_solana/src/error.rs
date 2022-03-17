@@ -3,6 +3,7 @@ use bundlr_sdk::error::BundlrError;
 use solana_client::client_error::ClientError as SolanaClientError;
 use solana_sdk::program_error::ProgramError as SolanaProgramError;
 use solana_sdk::pubkey::ParsePubkeyError;
+use solana_sdk::signature::Signature;
 use solana_sdk::signer::SignerError as SolanaSignerError;
 use thiserror::Error as ThisError;
 
@@ -80,6 +81,12 @@ pub enum Error {
     BundlrNotAvailableOnTestnet,
     #[error("recipient isn't isn't a token account")]
     RecipientIsntATokenAccount,
+    #[error("bundlr api returned an invalid response")]
+    BundlrApiInvalidResponse,
+    #[error("failed to register funding tx to bundlr. tx_id={0};")]
+    BundlrTxRegisterFailed(String),
+    #[error("insufficient solana balance, needed={needed}; have={balance};")]
+    InsufficientSolanaBalance { needed: u64, balance: u64 },
 }
 
 impl From<BundlrError> for Error {

@@ -97,6 +97,7 @@ impl Transfer {
             Some(s) => s,
             None => match inputs.remove("allow_unfunded") {
                 Some(Value::Bool(s)) => s,
+                None => true,
                 _ => return Err(Error::ArgumentNotFound("allow_unfunded".to_string())),
             },
         };
@@ -105,6 +106,7 @@ impl Transfer {
             Some(s) => s,
             None => match inputs.remove("fund_recipient") {
                 Some(Value::Bool(s)) => s,
+                None => true,
                 _ => return Err(Error::ArgumentNotFound("fund_recipient".to_string())),
             },
         };
