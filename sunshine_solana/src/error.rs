@@ -1,3 +1,4 @@
+use crate::commands::simple::branch::Operator;
 use crate::ValueKind;
 use bundlr_sdk::error::BundlrError;
 use solana_client::client_error::ClientError as SolanaClientError;
@@ -87,6 +88,12 @@ pub enum Error {
     BundlrTxRegisterFailed(String),
     #[error("insufficient solana balance, needed={needed}; have={balance};")]
     InsufficientSolanaBalance { needed: u64, balance: u64 },
+    #[error("can't compare {a} with {b} using {operator} operator")]
+    ComparisonError {
+        a: ValueKind,
+        operator: Operator,
+        b: ValueKind,
+    },
 }
 
 impl From<BundlrError> for Error {

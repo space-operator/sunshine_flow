@@ -1,3 +1,4 @@
+use commands::simple::branch::Operator;
 use commands::solana::nft::create_metadata_accounts::NftUses;
 use serde::{Deserialize, Serialize};
 use solana_sdk::signature::Signature;
@@ -442,23 +443,65 @@ impl FlowContext {
                     }
                 }
 
-                for (name, txs) in node.outputs.into_iter() {
-                    let val = match outputs.get(&name) {
-                        Some(val) => val.clone(),
+                let mut node_outputs = node.outputs;
+
+                if let Some(_) = outputs.get("__true_branch") {
+                    match node_outputs.remove("__true_branch") {
+                        Some(txs) => {
+                            for tx in txs {
+                                tx.send(Value::Empty).ok();
+                            }
+                        }
                         None => {
                             change_state(
                                 db.clone(),
                                 RunState::Failed(
                                     start.elapsed().as_millis() as u64,
-                                    format!("output with name {} not found", name),
+                                    "output with name __true_branch not found".to_owned(),
                                 ),
                             )
                             .await;
                             return;
                         }
-                    };
-                    for tx in txs {
-                        tx.send(val.clone()).ok();
+                    }
+                } else if let Some(_) = outputs.get("__false_branch") {
+                    match node_outputs.remove("__false_branch") {
+                        Some(txs) => {
+                            for tx in txs {
+                                tx.send(Value::Empty).ok();
+                            }
+                        }
+                        None => {
+                            change_state(
+                                db.clone(),
+                                RunState::Failed(
+                                    start.elapsed().as_millis() as u64,
+                                    "output with name __false_branch not found".to_owned(),
+                                ),
+                            )
+                            .await;
+                            return;
+                        }
+                    }
+                } else {
+                    for (name, txs) in node_outputs.into_iter() {
+                        let val = match outputs.get(&name) {
+                            Some(val) => val.clone(),
+                            None => {
+                                change_state(
+                                    db.clone(),
+                                    RunState::Failed(
+                                        start.elapsed().as_millis() as u64,
+                                        format!("output with name {} not found", name),
+                                    ),
+                                )
+                                .await;
+                                return;
+                            }
+                        };
+                        for tx in txs {
+                            tx.send(val.clone()).ok();
+                        }
                     }
                 }
 
@@ -542,6 +585,8 @@ pub enum Value {
     Uses(NftUses),
     #[display(fmt = "{}", _0)]
     NftMetadata(NftMetadata),
+    #[display(fmt = "{:?}", _0)]
+    Operator(Operator),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -633,6 +678,7 @@ impl Value {
             Value::MetadataAccountData(_) => ValueKind::MetadataAccountData,
             Value::Uses(_) => ValueKind::Uses,
             Value::NftMetadata(_) => ValueKind::NftMetadata,
+            Value::Operator(_) => ValueKind::Operator,
         }
     }
 }
@@ -679,6 +725,7 @@ pub enum ValueKind {
     MetadataAccountData,
     Uses,
     NftMetadata,
+    Operator,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, derive_more::Display)]

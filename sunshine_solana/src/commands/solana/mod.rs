@@ -24,6 +24,7 @@ pub mod mint_token;
 pub mod nft;
 pub mod request_airdrop;
 pub mod transfer;
+pub mod transfer_solana;
 
 const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
 const NAME_MARKER: &str = "NAME_MARKER";
@@ -238,6 +239,7 @@ pub enum Kind {
     MintToken(mint_token::MintToken),
     Transfer(transfer::Transfer),
     Nft(nft::Command),
+    TransferSolana(transfer_solana::TransferSolana),
 }
 
 impl Kind {
@@ -254,6 +256,7 @@ impl Kind {
             Kind::MintToken(_) => CommandKind::MintToken,
             Kind::Transfer(_) => CommandKind::Transfer,
             Kind::Nft(n) => CommandKind::Nft(n.kind()),
+            Kind::TransferSolana(_) => CommandKind::TransferSolana,
         }
     }
 }
@@ -271,6 +274,7 @@ pub enum CommandKind {
     MintToken,
     Transfer,
     Nft(nft::CommandKind),
+    TransferSolana,
 }
 
 impl Command {
@@ -290,6 +294,7 @@ impl Command {
             Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::Nft(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::TransferSolana(k) => k.run(self.ctx.clone(), inputs).await,
         }
     }
 
@@ -306,6 +311,7 @@ impl Command {
             Kind::MintToken(_) => CommandKind::MintToken,
             Kind::Transfer(_) => CommandKind::Transfer,
             Kind::Nft(n) => CommandKind::Nft(n.kind()),
+            Kind::TransferSolana(_) => CommandKind::TransferSolana,
         }
     }
 }

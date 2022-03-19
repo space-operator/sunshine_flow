@@ -6,6 +6,7 @@ use maplit::hashmap;
 
 use crate::{Error, Value};
 
+pub mod branch;
 pub mod http_request;
 pub mod ipfs_nft_upload;
 pub mod ipfs_upload;
@@ -19,12 +20,14 @@ pub enum Command {
     JsonExtract(json_extract::JsonExtract),
     IpfsUpload(ipfs_upload::IpfsUpload),
     IpfsNftUpload(ipfs_nft_upload::IpfsNftUpload),
+    Wait,
+    Branch(branch::Branch),
 }
 
 impl Command {
     pub(crate) async fn run(
         &self,
-        inputs: HashMap<String, Value>,
+        mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         match self {
             Command::Const(c) => Ok(hashmap! {
@@ -43,10 +46,25 @@ impl Command {
                     "__print_output".into() => Value::String(to_print),
                 })
             }
+            Command::Wait => {
+                if !inputs.contains_key("wait") {
+                    return Err(Error::ArgumentNotFound("wait".to_string()));
+                }
+
+                let value = match inputs.remove("value") {
+                    Some(v) => v,
+                    _ => return Err(Error::ArgumentNotFound("value".to_string())),
+                };
+
+                Ok(hashmap! {
+                    "value".into() => value
+                })
+            }
             Command::HttpRequest(c) => c.run(inputs).await,
             Command::JsonExtract(c) => c.run(inputs).await,
             Command::IpfsUpload(c) => c.run(inputs).await,
             Command::IpfsNftUpload(c) => c.run(inputs).await,
+            Command::Branch(c) => c.run(inputs).await,
         }
     }
 
@@ -58,6 +76,8 @@ impl Command {
             Command::JsonExtract(_) => CommandKind::JsonExtract,
             Command::IpfsUpload(_) => CommandKind::IpfsUpload,
             Command::IpfsNftUpload(_) => CommandKind::IpfsNftUpload,
+            Command::Wait => CommandKind::Wait,
+            Command::Branch(_) => CommandKind::Branch,
         }
     }
 }
@@ -70,4 +90,6 @@ pub enum CommandKind {
     JsonExtract,
     IpfsUpload,
     IpfsNftUpload,
+    Wait,
+    Branch,
 }

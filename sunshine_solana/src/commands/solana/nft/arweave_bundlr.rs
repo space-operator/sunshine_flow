@@ -267,6 +267,7 @@ impl Uploader {
             "sol".to_string(),
             SolanaSigner::from_base58(&self.fee_payer),
         );
+
         let tx = bundlr.create_transaction_with_tags(
             data,
             vec![Tag::new("Content-Type".into(), content_type)],
