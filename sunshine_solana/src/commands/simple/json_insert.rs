@@ -9,17 +9,18 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct JsonExtract {
+pub struct JsonInsert {
     pub path: Option<String>,
     pub json: Option<Value>,
+    pub value: Option<Value>,
 }
 
-impl JsonExtract {
+impl JsonInsert {
     pub(crate) async fn run(
         &self,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let json = match &self.json {
+        let mut json = match &self.json {
             Some(v) => JsonValue::try_from(v.clone())?,
             None => match inputs.remove("json") {
                 Some(v) => JsonValue::try_from(v)?,
@@ -35,13 +36,23 @@ impl JsonExtract {
             },
         };
 
-        let val = match json.pointer(&path) {
-            Some(v) => Value::try_from(v.clone())?,
-            None => Value::Empty,
+        let value = match &self.value {
+            Some(v) => JsonValue::try_from(v.clone())?,
+            None => match inputs.remove("value") {
+                Some(v) => JsonValue::try_from(v)?,
+                _ => return Err(Error::ArgumentNotFound("value".to_string())),
+            },
         };
 
+        match json.pointer_mut(&path) {
+            Some(p) => {
+                *p = value;
+            }
+            None => (),
+        }
+
         let outputs = hashmap! {
-            "value".to_owned()=> val,
+            "json".to_owned() => Value::Json(json.into()),
         };
 
         Ok(outputs)

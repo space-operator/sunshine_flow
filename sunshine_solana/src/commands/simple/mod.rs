@@ -11,6 +11,7 @@ pub mod http_request;
 pub mod ipfs_nft_upload;
 pub mod ipfs_upload;
 pub mod json_extract;
+pub mod json_insert;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Command {
@@ -22,6 +23,7 @@ pub enum Command {
     IpfsNftUpload(ipfs_nft_upload::IpfsNftUpload),
     Wait,
     Branch(branch::Branch),
+    JsonInsert(json_insert::JsonInsert),
 }
 
 impl Command {
@@ -53,6 +55,7 @@ impl Command {
 
                 let value = match inputs.remove("value") {
                     Some(v) => v,
+                    None => Value::Empty,
                     _ => return Err(Error::ArgumentNotFound("value".to_string())),
                 };
 
@@ -65,6 +68,7 @@ impl Command {
             Command::IpfsUpload(c) => c.run(inputs).await,
             Command::IpfsNftUpload(c) => c.run(inputs).await,
             Command::Branch(c) => c.run(inputs).await,
+            Command::JsonInsert(c) => c.run(inputs).await,
         }
     }
 
@@ -78,6 +82,7 @@ impl Command {
             Command::IpfsNftUpload(_) => CommandKind::IpfsNftUpload,
             Command::Wait => CommandKind::Wait,
             Command::Branch(_) => CommandKind::Branch,
+            Command::JsonInsert(_) => CommandKind::JsonInsert,
         }
     }
 }
@@ -92,4 +97,5 @@ pub enum CommandKind {
     IpfsNftUpload,
     Wait,
     Branch,
+    JsonInsert,
 }

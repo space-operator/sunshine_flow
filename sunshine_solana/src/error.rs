@@ -1,5 +1,5 @@
 use crate::commands::simple::branch::Operator;
-use crate::ValueKind;
+use crate::{JsonValueWrapper, Value, ValueKind};
 use bundlr_sdk::error::BundlrError;
 use solana_client::client_error::ClientError as SolanaClientError;
 use solana_sdk::program_error::ProgramError as SolanaProgramError;
@@ -94,6 +94,14 @@ pub enum Error {
         operator: Operator,
         b: ValueKind,
     },
+    #[error("can't convert json to value: {0}")]
+    IncompatibleJson(JsonValueWrapper),
+    #[error("can't convert value to json: {0}")]
+    IncompatibleValue(Value),
+    #[error("invalid http headers passed in arguments")]
+    InvalidHttpHeaders,
+    #[error("multiple outputs connected to same input")]
+    MultipleOutputsToSameInput,
 }
 
 impl From<BundlrError> for Error {

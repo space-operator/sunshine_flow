@@ -7,11 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use reqwest::{Client, Method};
 
+use serde_json::Value as JsonValue;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpRequest {
     pub method: Option<String>,
     pub url: Option<String>,
     pub auth_token: Option<String>,
+    pub json_body: Option<Option<Value>>,
+    pub headers: Option<Option<Value>>,
 }
 
 impl HttpRequest {
@@ -36,11 +40,33 @@ impl HttpRequest {
         };
 
         let auth_token = match self.auth_token.as_ref() {
-            Some(auth_token) => Some(auth_token),
+            Some(auth_token) => Some(auth_token.clone()),
             None => match inputs.get("auth_token") {
-                Some(Value::String(ref s)) => Some(s),
+                Some(Value::String(ref s)) => Some(s.clone()),
                 None => None,
                 _ => return Err(Error::ArgumentNotFound("auth_token".to_string())),
+            },
+        };
+
+        let json_body = match &self.json_body {
+            Some(v) => v
+                .as_ref()
+                .map(|v| JsonValue::try_from(v.clone()))
+                .transpose()?,
+            None => match inputs.remove("json_body") {
+                Some(v) => Some(JsonValue::try_from(v)?),
+                None => None,
+            },
+        };
+
+        let headers = match &self.json_body {
+            Some(v) => v
+                .as_ref()
+                .map(|v| JsonValue::try_from(v.clone()))
+                .transpose()?,
+            None => match inputs.remove("headers") {
+                Some(v) => Some(JsonValue::try_from(v)?),
+                None => None,
             },
         };
 
@@ -54,6 +80,25 @@ impl HttpRequest {
             builder = builder.bearer_auth(auth_token);
         }
 
+        if let Some(json_body) = json_body {
+            builder = builder.json(&json_body);
+        }
+
+        if let Some(headers) = headers {
+            let headers = match headers {
+                JsonValue::Object(headers) => headers,
+                _ => return Err(Error::InvalidHttpHeaders),
+            };
+
+            for (key, value) in headers {
+                let value = match value {
+                    JsonValue::String(v) => v,
+                    _ => return Err(Error::InvalidHttpHeaders),
+                };
+                builder = builder.header(key, value);
+            }
+        }
+
         let resp = builder.send().await?;
 
         let status = resp.status();
@@ -63,13 +108,19 @@ impl HttpRequest {
 
         let resp_body = resp.text().await?;
 
+        let resp_body = match serde_json::from_str(&resp_body) {
+            Ok(json) => Value::Json(json),
+            Err(_) => Value::String(resp_body),
+        };
+
         let outputs = hashmap! {
-            "resp_body".to_owned()=> Value::String(resp_body),
+            "resp_body".to_owned()=> resp_body,
         };
 
         Ok(outputs)
     }
 }
+
 /*
 
 

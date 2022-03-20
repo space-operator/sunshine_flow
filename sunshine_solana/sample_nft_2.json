@@ -1,4 +1,86 @@
 {
+    "id": "recWNxPJAJ4qmz1On",
+    "fields": {
+        "Url": "https://api.jsonbin.io/b/61ddc9072675917a628edc21"
+    },
+    "createdTime": "2022-01-27T18:44:22.000Z"
+}
+
+{
+    "args": {},
+    "data": {
+        "records": [
+            {
+                "fields": {
+                    "Url": "product.com"
+                }
+            },
+            {
+                "fields": {
+                    "Url": "https://aol1.com"
+                }
+            }
+        ]
+    },
+    "files": {},
+    "form": {},
+    "headers": {
+        "x-forwarded-proto": "https",
+        "x-forwarded-port": "443",
+        "host": "postman-echo.com",
+        "x-amzn-trace-id": "Root=1-623764b3-7e778e7650871c9c17e16c6d",
+        "content-length": "91",
+        "content-type": "application/json",
+        "test": "Bearer keynH6Eh9ZN1Y2oqw",
+        "accept": "*/*"
+    },
+    "json": {
+        "records": [
+            {
+                "fields": {
+                    "Url": "https://google.com"
+                }
+            },
+            {
+                "fields": {
+                    "Url": "https://aol1.com"
+                }
+            }
+        ]
+    },
+    "url": "https://postman-echo.com/post"
+}
+
+Time elapsed 0s 
+failed to run command: SolanaClient(
+    ClientError {
+        request: Some(
+            SendTransaction,
+        ),
+        kind: RpcError(
+            RpcResponseError {
+                code: -32002,
+                message: "Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.",
+                data: SendTransactionPreflightFailure(
+                    RpcSimulateTransactionResult {
+                        err: Some(
+                            AccountNotFound,
+                        ),
+                        logs: Some(
+                            [],
+                        ),
+                        accounts: None,
+                        units_consumed: Some(
+                            0,
+                        ),
+        },
+                ),
+    },
+        ),
+},
+)
+
+{
     "name": "Degen Ape #9751",
     "symbol": "DAPE",
     "description": "Deep in the heart of Dingus Forest echoes the sleepless cries of a troop of 10,000 apes. These aren’t just regular apes, however. These are degenerate apes.",

@@ -239,7 +239,9 @@ impl FlowContext {
                     .inputs
                     .insert(input_arg_name.to_owned(), rx);
 
-                assert!(overridden.is_none());
+                if overridden.is_some() {
+                    return Err(Error::MultipleOutputsToSameInput);
+                }
             }
             if node.properties.contains_key(START_NODE_MARKER) {
                 let (tx, rx) = mpsc::unbounded_channel();
@@ -377,7 +379,18 @@ impl FlowContext {
 
                 for (name, mut rx) in node.inputs {
                     let input = match rx.recv().await {
-                        Some(input) => input,
+                        Some(input) => match input {
+                            Value::Cancel => {
+                                for (_, txs) in node.outputs {
+                                    for tx in txs {
+                                        tx.send(Value::Cancel).ok();
+                                    }
+                                }
+                                change_state(db.clone(), RunState::Canceled).await;
+                                return;
+                            }
+                            v => v,
+                        },
                         None => {
                             change_state(
                                 db.clone(),
@@ -464,6 +477,24 @@ impl FlowContext {
                             return;
                         }
                     }
+                    match node_outputs.remove("__false_branch") {
+                        Some(txs) => {
+                            for tx in txs {
+                                tx.send(Value::Cancel).ok();
+                            }
+                        }
+                        None => {
+                            change_state(
+                                db.clone(),
+                                RunState::Failed(
+                                    start.elapsed().as_millis() as u64,
+                                    "output with name __false_branch not found".to_owned(),
+                                ),
+                            )
+                            .await;
+                            return;
+                        }
+                    }
                 } else if let Some(_) = outputs.get("__false_branch") {
                     match node_outputs.remove("__false_branch") {
                         Some(txs) => {
@@ -477,6 +508,24 @@ impl FlowContext {
                                 RunState::Failed(
                                     start.elapsed().as_millis() as u64,
                                     "output with name __false_branch not found".to_owned(),
+                                ),
+                            )
+                            .await;
+                            return;
+                        }
+                    }
+                    match node_outputs.remove("__true_branch") {
+                        Some(txs) => {
+                            for tx in txs {
+                                tx.send(Value::Cancel).ok();
+                            }
+                        }
+                        None => {
+                            change_state(
+                                db.clone(),
+                                RunState::Failed(
+                                    start.elapsed().as_millis() as u64,
+                                    "output with name __true_branch not found".to_owned(),
                                 ),
                             )
                             .await;
@@ -534,6 +583,7 @@ pub enum RunState {
     Running,
     Failed(u64, String),
     Success(u64),
+    Canceled,
 }
 
 pub enum Schedule {
@@ -587,6 +637,105 @@ pub enum Value {
     NftMetadata(NftMetadata),
     #[display(fmt = "{:?}", _0)]
     Operator(Operator),
+    #[display(fmt = "{}", _0)]
+    Json(JsonValueWrapper),
+    #[display(fmt = "cancel")]
+    Cancel,
+}
+
+impl TryFrom<JsonValue> for Value {
+    type Error = Error;
+
+    fn try_from(json: JsonValue) -> Result<Value, Error> {
+        let v = match json {
+            JsonValue::Null => Value::Empty,
+            JsonValue::Bool(b) => Value::Bool(b),
+            JsonValue::Number(n) => {
+                if let Some(v) = n.as_u64() {
+                    Value::U64(v)
+                } else if let Some(v) = n.as_f64() {
+                    Value::F64(v)
+                } else if let Some(v) = n.as_i64() {
+                    Value::I64(v)
+                } else {
+                    return Err(Error::IncompatibleJson(JsonValue::Number(n).into()));
+                }
+            }
+            JsonValue::String(s) => Value::String(s.clone()),
+            JsonValue::Array(_) => return Err(Error::IncompatibleJson(json.into())),
+            JsonValue::Object(_) => return Err(Error::IncompatibleJson(json.into())),
+        };
+
+        Ok(v)
+    }
+}
+
+impl TryFrom<Value> for JsonValue {
+    type Error = Error;
+
+    fn try_from(value: Value) -> Result<JsonValue, Error> {
+        let json = match value {
+            Value::I64(val) => JsonValue::Number(serde_json::Number::from(val)),
+            Value::Keypair(s) => JsonValue::String(s.0),
+            Value::String(s) => JsonValue::String(s),
+            Value::NodeId(val) => JsonValue::String(val.to_string()),
+            Value::DeletedNode(val) => JsonValue::String(val.to_string()),
+            Value::Pubkey(p) => JsonValue::String(p.to_string()),
+            Value::Success(s) => JsonValue::String(s.to_string()),
+            Value::Balance(val) => JsonValue::Number(serde_json::Number::from(val)),
+            Value::U8(val) => JsonValue::Number(serde_json::Number::from(val)),
+            Value::U16(val) => JsonValue::Number(serde_json::Number::from(val)),
+            Value::U64(val) => JsonValue::Number(serde_json::Number::from(val)),
+            Value::F32(val) => JsonValue::Number(
+                serde_json::Number::from_f64(val as f64)
+                    .ok_or_else(|| Error::IncompatibleValue(Value::F32(val)))?,
+            ),
+            Value::F64(val) => JsonValue::Number(
+                serde_json::Number::from_f64(val)
+                    .ok_or_else(|| Error::IncompatibleValue(Value::F64(val)))?,
+            ),
+            Value::Bool(b) => JsonValue::Bool(b),
+            Value::StringOpt(val) => match val {
+                Some(val) => JsonValue::String(val),
+                None => JsonValue::Null,
+            },
+            Value::Empty => JsonValue::Null,
+            Value::NodeIdOpt(val) => match val {
+                Some(val) => JsonValue::String(val.to_string()),
+                None => JsonValue::Null,
+            },
+            Value::NftCreators(val) => serde_json::to_value(val).unwrap(),
+            Value::MetadataAccountData(val) => serde_json::to_value(val).unwrap(),
+            Value::Uses(val) => serde_json::to_value(val).unwrap(),
+            Value::NftMetadata(val) => serde_json::to_value(val).unwrap(),
+            Value::Operator(op) => JsonValue::String(format!("{:?}", op)),
+            Value::Json(json) => json.into(),
+            Value::Cancel => JsonValue::Null,
+        };
+
+        Ok(json)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JsonValueWrapper(JsonValue);
+
+impl fmt::Display for JsonValueWrapper {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&serde_json::to_string(&self.0).unwrap())
+    }
+}
+
+impl From<JsonValue> for JsonValueWrapper {
+    fn from(v: JsonValue) -> JsonValueWrapper {
+        JsonValueWrapper(v)
+    }
+}
+
+impl From<JsonValueWrapper> for JsonValue {
+    fn from(w: JsonValueWrapper) -> JsonValue {
+        w.0
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -679,6 +828,8 @@ impl Value {
             Value::Uses(_) => ValueKind::Uses,
             Value::NftMetadata(_) => ValueKind::NftMetadata,
             Value::Operator(_) => ValueKind::Operator,
+            Value::Json(_) => ValueKind::Json,
+            Value::Cancel => ValueKind::Cancel,
         }
     }
 }
@@ -726,6 +877,8 @@ pub enum ValueKind {
     Uses,
     NftMetadata,
     Operator,
+    Json,
+    Cancel,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, derive_more::Display)]
