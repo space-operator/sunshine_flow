@@ -98,13 +98,21 @@ impl CreateAccount {
 
         let mut outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
-            "token".to_owned()=> Value::Pubkey(token),
-            "owner".to_owned() => Value::Pubkey(owner),
+            "token".to_owned()=> Value::Pubkey(token.into()),
+            "owner".to_owned() => Value::Pubkey(owner.into()),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
 
         if let Some(account) = account {
-            outputs.insert("account".into(), Value::Keypair(account.into()));
+            outputs.insert("account".into(), Value::Pubkey(account.pubkey().into()));
+        } else {
+            outputs.insert(
+                "account".into(),
+                Value::Pubkey(
+                    spl_associated_token_account::get_associated_token_address(&owner, &token)
+                        .into(),
+                ),
+            );
         }
 
         Ok(outputs)

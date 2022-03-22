@@ -65,7 +65,7 @@ impl Utilize {
                     let keypair: Keypair = k.into();
                     Some(keypair.pubkey())
                 }
-                Some(Value::Pubkey(k)) => Some(k),
+                Some(Value::Pubkey(k)) => Some(k.into()),
                 Some(Value::Empty) => None,
                 _ => None,
             },
@@ -112,7 +112,7 @@ impl Utilize {
                     let keypair: Keypair = k.into();
                     Some(keypair.pubkey())
                 }
-                Some(Value::Pubkey(k)) => Some(k),
+                Some(Value::Pubkey(k)) => Some(k.into()),
                 Some(Value::Empty) => None,
                 _ => None,
             },

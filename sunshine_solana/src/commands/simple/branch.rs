@@ -1,15 +1,8 @@
-use crate::{Error, NftMetadata, Value};
+use crate::{Error, Value};
 
-use maplit::hashmap;
-use serde_json::Value as JsonValue;
 use std::collections::HashMap;
-use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-
-use reqwest::{Client, Method};
-
-use reqwest::multipart::{Form, Part};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Branch {
@@ -49,7 +42,7 @@ impl Branch {
             },
         };
 
-        let mut b = match &self.b {
+        let b = match &self.b {
             Some(s) => s.clone(),
             None => match inputs.remove("b") {
                 Some(v) => v,

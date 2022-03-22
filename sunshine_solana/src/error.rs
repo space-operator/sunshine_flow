@@ -80,8 +80,8 @@ pub enum Error {
     Bundlr(BundlrError),
     #[error("bundlr isn't available on solana testnet")]
     BundlrNotAvailableOnTestnet,
-    #[error("recipient isn't isn't a token account")]
-    RecipientIsntATokenAccount,
+    #[error("specified account: {0} isn't a token account")]
+    NotTokenAccount(String),
     #[error("bundlr api returned an invalid response")]
     BundlrApiInvalidResponse,
     #[error("failed to register funding tx to bundlr. tx_id={0};")]

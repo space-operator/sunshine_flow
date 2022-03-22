@@ -41,7 +41,7 @@ impl AddPubkey {
         ctx.insert_pubkey(name, pubkey).await?;
 
         Ok(hashmap! {
-            "pubkey".to_owned()=> Value::Pubkey(pubkey),
+            "pubkey".to_owned()=> Value::Pubkey(pubkey.into()),
         })
     }
 }

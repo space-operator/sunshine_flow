@@ -53,7 +53,7 @@ impl IpfsNftUpload {
         );
 
         if let Some(properties) = metadata.properties.as_mut() {
-            if let Some(mut files) = properties.files.as_mut() {
+            if let Some(files) = properties.files.as_mut() {
                 for file in files.iter_mut() {
                     file.uri = format!(
                         "ipfs://{}",

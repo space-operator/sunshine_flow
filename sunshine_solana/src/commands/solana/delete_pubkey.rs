@@ -36,7 +36,7 @@ impl DeletePubkey {
                 let pubkey = ctx.remove_pubkey(node_id).await?;
 
                 Ok(hashmap! {
-                    "removed_pubkey".to_owned()=> Value::Pubkey(pubkey)
+                    "removed_pubkey".to_owned()=> Value::Pubkey(pubkey.into())
                 })
             }
             Either::Right(node_id) => {
@@ -50,7 +50,7 @@ impl DeletePubkey {
                 let pubkey = ctx.remove_pubkey(node_id).await?;
 
                 Ok(hashmap! {
-                    "removed_pubkey".to_owned()=> Value::Pubkey(pubkey)
+                    "removed_pubkey".to_owned()=> Value::Pubkey(pubkey.into())
                 })
             }
         }

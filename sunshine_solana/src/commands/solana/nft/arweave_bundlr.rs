@@ -65,6 +65,7 @@ impl ArweaveBundlr {
             None => match inputs.remove("fund_bundlr") {
                 Some(Value::Bool(b)) => b,
                 Some(Value::Empty) => true,
+                None => true,
                 _ => return Err(Error::ArgumentNotFound("fund_bundlr".to_string())),
             },
         };
@@ -72,7 +73,7 @@ impl ArweaveBundlr {
         let mut uploader = Uploader::new(ctx.solana_net, &fee_payer, ctx.clone())?;
 
         if fund_bundlr {
-            uploader.lazy_fund(&metadata).await?;
+            uploader.lazy_fund_metadata(&metadata).await?;
         }
 
         metadata.image = uploader.upload_file(&metadata.image).await?;
@@ -102,7 +103,7 @@ impl ArweaveBundlr {
     }
 }
 
-struct Uploader {
+pub struct Uploader {
     cache: HashMap<String, String>,
     fee_payer: String,
     node_url: String,
@@ -110,7 +111,11 @@ struct Uploader {
 }
 
 impl Uploader {
-    fn new(solana_net: SolanaNet, fee_payer: &Keypair, ctx: Arc<Ctx>) -> Result<Uploader, Error> {
+    pub fn new(
+        solana_net: SolanaNet,
+        fee_payer: &Keypair,
+        ctx: Arc<Ctx>,
+    ) -> Result<Uploader, Error> {
         let node_url = match solana_net {
             SolanaNet::Mainnet => "https://node1.bundlr.network".to_owned(),
             SolanaNet::Devnet => "https://devnet.bundlr.network".to_owned(),
@@ -125,7 +130,23 @@ impl Uploader {
         })
     }
 
-    async fn lazy_fund(&self, metadata: &NftMetadata) -> Result<(), Error> {
+    pub async fn lazy_fund(&self, file_path: &str) -> Result<(), Error> {
+        let mut needed_size = Self::get_file_size(file_path).await?;
+        needed_size += 10_000;
+
+        let needed_balance = self.get_price(needed_size).await?;
+        let needed_balance = needed_balance + needed_balance / 10;
+
+        let current_balance = self.get_current_balance().await?;
+
+        if current_balance < needed_balance {
+            self.fund(needed_balance - current_balance).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn lazy_fund_metadata(&self, metadata: &NftMetadata) -> Result<(), Error> {
         use std::collections::HashSet;
 
         let mut processed = HashSet::new();
@@ -197,7 +218,7 @@ impl Uploader {
         Ok(u64::from_str(&resp.balance).map_err(|_| Error::BundlrApiInvalidResponse)?)
     }
 
-    async fn fund(&self, amount: u64) -> Result<(), Error> {
+    pub async fn fund(&self, amount: u64) -> Result<(), Error> {
         #[derive(Deserialize, Serialize)]
         struct Addresses {
             solana: String,
@@ -242,7 +263,7 @@ impl Uploader {
         Ok(())
     }
 
-    async fn upload_file(&mut self, file_path: &str) -> Result<String, Error> {
+    pub async fn upload_file(&mut self, file_path: &str) -> Result<String, Error> {
         if let Some(url) = self.cache.get(file_path) {
             return Ok(url.clone());
         }
@@ -260,7 +281,7 @@ impl Uploader {
         Ok(url)
     }
 
-    async fn upload(&self, data: Vec<u8>, content_type: String) -> Result<String, Error> {
+    pub async fn upload(&self, data: Vec<u8>, content_type: String) -> Result<String, Error> {
         let bundlr = Bundlr::new(
             self.node_url.clone(),
             "solana".to_string(),

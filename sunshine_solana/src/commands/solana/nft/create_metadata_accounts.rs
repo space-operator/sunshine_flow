@@ -237,8 +237,8 @@ impl CreateMetadataAccounts {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
-            "token".to_owned()=>Value::Pubkey(token),
-            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey),
+            "token".to_owned()=>Value::Pubkey(token.into()),
+            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
         };
 
         Ok(outputs)

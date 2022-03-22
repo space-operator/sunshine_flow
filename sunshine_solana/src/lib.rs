@@ -604,7 +604,7 @@ pub enum Value {
     #[display(fmt = "{}", _0)]
     DeletedNode(Uuid),
     #[display(fmt = "{}", _0)]
-    Pubkey(Pubkey),
+    Pubkey(WrappedPubkey),
     #[display(fmt = "{}", _0)]
     Success(Signature),
     #[display(fmt = "{}", _0)]
@@ -843,7 +843,7 @@ impl TryInto<Pubkey> for Value {
                 let kp: Keypair = kp.into();
                 kp.pubkey()
             }
-            Value::Pubkey(p) => p,
+            Value::Pubkey(p) => p.into(),
             Value::String(s) => Pubkey::from_str(s.as_str())?,
             _ => return Err(Error::ValueIntoError(self.kind(), "Pubkey".to_owned())),
         };
@@ -893,6 +893,21 @@ impl From<Keypair> for WrappedKeypair {
 impl From<WrappedKeypair> for Keypair {
     fn from(wk: WrappedKeypair) -> Keypair {
         Keypair::from_base58_string(&wk.0)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, derive_more::Display)]
+pub struct WrappedPubkey(String);
+
+impl From<Pubkey> for WrappedPubkey {
+    fn from(pubkey: Pubkey) -> Self {
+        Self(pubkey.to_string())
+    }
+}
+
+impl From<WrappedPubkey> for Pubkey {
+    fn from(wp: WrappedPubkey) -> Pubkey {
+        Pubkey::from_str(&wp.0).unwrap()
     }
 }
 

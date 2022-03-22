@@ -6,6 +6,7 @@ use crate::{error::Error, Value};
 
 pub mod approve_use_authority;
 pub mod arweave_bundlr;
+pub mod arweave_file_upload;
 pub mod arweave_nft_upload;
 pub mod arweave_upload;
 pub mod create_master_edition;
@@ -25,6 +26,7 @@ pub enum Command {
     ArweaveUpload(arweave_upload::ArweaveUpload),
     ArweaveNftUpload(arweave_nft_upload::ArweaveNftUpload),
     ArweaveBundlr(arweave_bundlr::ArweaveBundlr),
+    ArweaveFileUpload(arweave_file_upload::ArweaveFileUpload),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,6 +40,7 @@ pub enum CommandKind {
     ArweaveUpload,
     ArweaveNftUpload,
     ArweaveBundlr,
+    ArweaveFileUpload,
 }
 
 impl Command {
@@ -56,6 +59,7 @@ impl Command {
             Command::ArweaveUpload(k) => k.run(ctx, inputs).await,
             Command::ArweaveNftUpload(k) => k.run(ctx, inputs).await,
             Command::ArweaveBundlr(k) => k.run(ctx, inputs).await,
+            Command::ArweaveFileUpload(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -70,6 +74,7 @@ impl Command {
             Command::ArweaveUpload(_) => CommandKind::ArweaveUpload,
             Command::ArweaveNftUpload(_) => CommandKind::ArweaveNftUpload,
             Command::ArweaveBundlr(_) => CommandKind::ArweaveBundlr,
+            Command::ArweaveFileUpload(_) => CommandKind::ArweaveFileUpload,
         }
     }
 }

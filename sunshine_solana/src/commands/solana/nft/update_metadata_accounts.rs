@@ -90,7 +90,7 @@ impl UpdateMetadataAccounts {
             },
             None => match inputs.remove("new_update_authority") {
                 Some(Value::NodeId(s)) => Some(ctx.get_pubkey_by_id(s).await?),
-                Some(Value::Pubkey(k)) => Some(k),
+                Some(Value::Pubkey(k)) => Some(k.into()),
                 Some(Value::Empty) => None,
                 None => None,
                 _ => return Err(Error::ArgumentNotFound("new_update_authority".to_string())),
@@ -164,8 +164,8 @@ impl UpdateMetadataAccounts {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
-            "token".to_owned()=>Value::Pubkey(token),
-            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey),
+            "token".to_owned()=>Value::Pubkey(token.into()),
+            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
         };
 
         Ok(outputs)

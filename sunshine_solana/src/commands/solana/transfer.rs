@@ -2,6 +2,7 @@ use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
+use solana_sdk::signature::Keypair;
 use solana_sdk::{program_pack::Pack, pubkey::Pubkey, signer::Signer, system_program};
 use spl_token::instruction::transfer_checked;
 use std::{collections::HashMap, sync::Arc};
@@ -70,17 +71,19 @@ impl Transfer {
         let sender = match self.sender {
             //TODOrename sender_account
             Some(s) => match s {
-                Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
+                Some(sender) => Some(ctx.get_pubkey_by_id(sender).await?),
                 None => None,
             },
             None => match inputs.remove("sender") {
                 Some(Value::NodeIdOpt(s)) => match s {
-                    Some(sender) => Some(ctx.get_keypair_by_id(sender).await?),
+                    Some(sender) => Some(ctx.get_pubkey_by_id(sender).await?),
                     None => None,
                 },
-                Some(Value::Keypair(k)) => Some(k.into()),
+                Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
+                Some(Value::Pubkey(p)) => Some(p.into()),
                 Some(Value::Empty) => None,
-                _ => None,
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("sender".to_string())),
             },
         };
 
@@ -128,7 +131,7 @@ impl Transfer {
             token,
             amount,
             recipient,
-            sender.as_ref().map(|s| s.pubkey()),
+            sender,
             sender_owner.pubkey(),
             allow_unfunded,
             fund_recipient,
@@ -137,11 +140,7 @@ impl Transfer {
 
         let fee_payer_pubkey = fee_payer.pubkey();
 
-        let mut signers: Vec<&dyn Signer> = vec![&fee_payer, &sender_owner];
-
-        if let Some(sender) = sender.as_ref() {
-            signers.push(sender);
-        }
+        let signers: Vec<&dyn Signer> = vec![&fee_payer, &sender_owner];
 
         let signature = execute(
             &signers,
@@ -152,9 +151,10 @@ impl Transfer {
         )?;
 
         let outputs = hashmap! {
-            "sender_owner".to_owned()=> Value::Pubkey(sender_owner.pubkey()),
-            "recipient_account".to_owned()=> Value::Pubkey(recipient_acc),
+            "sender_owner".to_owned()=> Value::Pubkey(sender_owner.pubkey().into()),
+            "recipient_account".to_owned()=> Value::Pubkey(recipient_acc.into()),
             "signature".to_owned() => Value::Success(signature),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
 
         Ok(outputs)
@@ -181,7 +181,7 @@ pub fn command_transfer(
     } else {
         spl_associated_token_account::get_associated_token_address(&sender_owner, &token)
     };
-    let (_, decimals) = resolve_mint_info(client, &sender).unwrap();
+    let (_, decimals) = resolve_mint_info(client, &sender)?;
     let transfer_balance = spl_token::ui_amount_to_amount(ui_amount, decimals);
     let transfer_balance = {
         let sender_token_amount = client
@@ -279,7 +279,7 @@ pub fn command_transfer(
             &token,
             &recipient_token_account,
             &sender_owner,
-            &[&sender, fee_payer],
+            &[&sender_owner, fee_payer],
             transfer_balance,
             decimals,
         )

@@ -140,7 +140,7 @@ impl ApproveUseAuthority {
 
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
-            "use_authority_record_pubkey".to_owned() => Value::Pubkey(use_authority_record_pubkey),
+            "use_authority_record_pubkey".to_owned() => Value::Pubkey(use_authority_record_pubkey.into()),
         };
 
         Ok(outputs)

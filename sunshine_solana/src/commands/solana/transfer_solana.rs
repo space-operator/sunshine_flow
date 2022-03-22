@@ -59,7 +59,7 @@ impl TransferSolana {
 
         let outputs = hashmap! {
             "sender".to_owned()=> Value::Keypair(sender.into()),
-            "recipient".to_owned()=> Value::Pubkey(recipient),
+            "recipient".to_owned()=> Value::Pubkey(recipient.into()),
             "signature".to_owned() => Value::Success(signature),
         };
 

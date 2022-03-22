@@ -27,10 +27,10 @@ impl MintToken {
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
         let token = match self.token {
-            Some(s) => ctx.get_keypair_by_id(s).await?,
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("token") {
-                Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
-                Some(Value::Keypair(k)) => k.into(),
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
             },
         };
@@ -70,17 +70,18 @@ impl MintToken {
             },
         };
 
+        let fee_payer_pubkey = fee_payer.pubkey();
+
         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
             &ctx.client,
-            token.pubkey(),
+            token,
+            fee_payer_pubkey,
             amount,
             recipient,
             mint_authority.pubkey(),
         )?;
 
-        let fee_payer_pubkey = fee_payer.pubkey();
-
-        let signers: Vec<&dyn Signer> = vec![&mint_authority, &token, &fee_payer];
+        let signers: Vec<&dyn Signer> = vec![&mint_authority, &fee_payer];
 
         let signature = execute(
             &signers,
@@ -92,8 +93,9 @@ impl MintToken {
 
         let outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
-            "token".to_owned()=> Value::Pubkey(token.pubkey()),
+            "token".to_owned()=> Value::Pubkey(token.into()),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
+            "recipient".to_owned() => Value::Pubkey(recipient.into()),
         };
 
         Ok(outputs)
@@ -108,8 +110,8 @@ pub(crate) fn resolve_mint_info(
 ) -> Result<(Pubkey, u8), Error> {
     let source_account = client
         .get_token_account(token_account)
-        .map_err(|_| Error::RecipientIsntATokenAccount)?
-        .ok_or(Error::RecipientIsntATokenAccount)?;
+        .map_err(|_| Error::NotTokenAccount(token_account.to_string()))?
+        .ok_or_else(|| Error::NotTokenAccount(token_account.to_string()))?;
     let source_mint = Pubkey::from_str(&source_account.mint).unwrap();
     Ok((source_mint, source_account.token_amount.decimals))
 }
@@ -117,6 +119,7 @@ pub(crate) fn resolve_mint_info(
 pub fn command_mint(
     client: &RpcClient,
     token: Pubkey,
+    fee_payer: Pubkey,
     ui_amount: f64,
     recipient: Pubkey,
     mint_authority: Pubkey,
@@ -129,7 +132,7 @@ pub fn command_mint(
         &token,
         &recipient,
         &mint_authority,
-        &[&token, &mint_authority],
+        &[&fee_payer, &mint_authority],
         amount,
         decimals,
     )
