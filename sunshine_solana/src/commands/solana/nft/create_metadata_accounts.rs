@@ -19,9 +19,8 @@ pub struct CreateMetadataAccounts {
     pub token_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
-    pub uri: Option<String>,
+    pub metadata_uri: Option<String>,
     pub metadata: Option<NftMetadata>,
-    pub update_authority_is_signer: Option<bool>,
     pub is_mutable: Option<bool>,
     pub uses: Option<Option<NftUses>>,
 }
@@ -117,7 +116,7 @@ impl CreateMetadataAccounts {
             },
         };
 
-        let mut metadata = match &self.metadata {
+        let metadata = match &self.metadata {
             Some(s) => s.clone(),
             None => match inputs.remove("metadata") {
                 Some(Value::NftMetadata(s)) => s,
@@ -129,33 +128,21 @@ impl CreateMetadataAccounts {
 
         let symbol = metadata.symbol;
 
-        let uri = match &self.uri {
+        let metadata_uri = match &self.metadata_uri {
             Some(s) => s.clone(),
-            None => match inputs.remove("uri") {
+            None => match inputs.remove("metadata_uri") {
                 Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("uri".to_string())),
+                _ => return Err(Error::ArgumentNotFound("metadata_uri".to_string())),
             },
         };
 
         let seller_fee_basis_points = metadata.seller_fee_basis_points;
 
-        let update_authority_is_signer = match self.update_authority_is_signer {
-            Some(s) => s,
-            None => match inputs.remove("update_authority_is_signer") {
-                Some(Value::Bool(s)) => s,
-                None => true,
-                _ => {
-                    return Err(Error::ArgumentNotFound(
-                        "update_authority_is_signer".to_string(),
-                    ))
-                }
-            },
-        };
-
         let is_mutable = match self.is_mutable {
             Some(s) => s,
             None => match inputs.remove("is_mutable") {
                 Some(Value::Bool(s)) => s,
+                Some(Value::Empty) => false,
                 None => false,
                 _ => return Err(Error::ArgumentNotFound("is_mutable".to_string())),
             },
@@ -211,10 +198,10 @@ impl CreateMetadataAccounts {
             update_authority.pubkey(),
             name,
             symbol,
-            uri,
+            metadata_uri,
             creators,
             seller_fee_basis_points,
-            update_authority_is_signer,
+            true,
             is_mutable,
             collection.map(Into::into),
             uses.map(Into::into),
@@ -238,7 +225,7 @@ impl CreateMetadataAccounts {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
             "token".to_owned()=>Value::Pubkey(token.into()),
-            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
+            "metadata_account".to_owned()=> Value::Pubkey(metadata_pubkey.into()),
         };
 
         Ok(outputs)

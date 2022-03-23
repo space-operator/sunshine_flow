@@ -10,6 +10,7 @@ use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair, signer::Signer};
+use spl_token::instruction::transfer_checked;
 use uuid::Uuid;
 
 use arloader::status::OutputFormat;
@@ -17,20 +18,23 @@ use arloader::{commands::command_upload_nfts, status::StatusCode};
 
 use sunshine_core::msg::NodeId;
 
+use crate::commands::solana::instructions::execute;
 use crate::commands::solana::SolanaNet;
 use crate::{Error, NftMetadata, Value};
 
 use solana_sdk::signer::keypair::write_keypair_file;
 
+use bundlr_sdk::{tags::Tag, Bundlr, Signer as BundlrSigner, SolanaSigner};
+
 use arloader::Arweave;
+
+use std::str::FromStr;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ArweaveNftUpload {
     pub fee_payer: Option<NodeId>,
-    pub reward_mult: Option<f32>,
-    pub arweave_key_path: Option<String>,
     pub metadata: Option<NftMetadata>,
-    pub pay_with_solana: Option<bool>,
+    pub fund_bundlr: Option<bool>,
 }
 
 impl ArweaveNftUpload {
@@ -48,22 +52,6 @@ impl ArweaveNftUpload {
             },
         };
 
-        let reward_mult = match self.reward_mult {
-            Some(s) => s,
-            None => match inputs.remove("reward_mult") {
-                Some(Value::F32(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("reward_mult".to_string())),
-            },
-        };
-
-        let arweave_key_path = match &self.arweave_key_path {
-            Some(s) => s.clone(),
-            None => match inputs.remove("arweave_key_path") {
-                Some(Value::String(s)) => s,
-                _ => return Err(Error::ArgumentNotFound("arweave_key_path".to_string())),
-            },
-        };
-
         let mut metadata = match &self.metadata {
             Some(s) => s.clone(),
             None => match inputs.remove("metadata") {
@@ -72,71 +60,42 @@ impl ArweaveNftUpload {
             },
         };
 
-        let pay_with_solana = match self.pay_with_solana {
+        let fund_bundlr = match self.fund_bundlr {
             Some(b) => b,
-            None => match inputs.remove("pay_with_solana") {
+            None => match inputs.remove("fund_bundlr") {
                 Some(Value::Bool(b)) => b,
-                Some(Value::Empty) => false,
-                _ => return Err(Error::ArgumentNotFound("pay_with_solana".to_string())),
+                Some(Value::Empty) => true,
+                None => true,
+                _ => return Err(Error::ArgumentNotFound("fund_bundlr".to_string())),
             },
         };
 
-        let mut tmpfile = tempfile::NamedTempFile::new().unwrap();
+        let mut uploader = Uploader::new(ctx.solana_net, &fee_payer, ctx.clone())?;
 
-        let file_map: Arc<DashMap<String, String>> = Arc::new(DashMap::new());
+        if fund_bundlr {
+            uploader.lazy_fund_metadata(&metadata).await?;
+        }
 
-        let upload_file_with_cache =
-            |fee_payer: &Keypair, arweave_key_path: &str, file_path: &str| {
-                let fee_payer = Keypair::from_base58_string(&fee_payer.to_base58_string());
-                let arweave_key_path = arweave_key_path.to_owned();
-                let file_path = file_path.to_owned();
-                let file_map = file_map.clone();
-                let solana_net = ctx.solana_net;
-                async move {
-                    if let Some(file_url) = file_map.get(&file_path) {
-                        return Ok::<String, Error>(file_url.clone());
-                    }
-
-                    let file_url = upload_file(
-                        pay_with_solana,
-                        solana_net,
-                        arweave_key_path,
-                        fee_payer,
-                        file_path.clone(),
-                        reward_mult,
-                    )
-                    .await?;
-
-                    file_map.insert(file_path, file_url.clone());
-
-                    Ok(file_url)
-                }
-            };
-
-        metadata.image =
-            upload_file_with_cache(&fee_payer, &arweave_key_path, &metadata.image).await?;
+        metadata.image = uploader.upload_file(&metadata.image).await?;
 
         if let Some(properties) = metadata.properties.as_mut() {
-            if let Some(mut files) = properties.files.as_mut() {
+            if let Some(files) = properties.files.as_mut() {
                 for file in files.iter_mut() {
-                    file.uri =
-                        upload_file_with_cache(&fee_payer, &arweave_key_path, &file.uri).await?;
+                    file.uri = uploader.upload_file(&file.uri).await?;
                 }
             }
         }
 
-        tokio::fs::write(&tmpfile.path(), serde_json::to_vec(&metadata).unwrap()).await?;
-
-        let metadata_url = upload_file_with_cache(
-            &fee_payer,
-            &arweave_key_path,
-            tmpfile.path().to_str().unwrap(),
-        )
-        .await?;
+        let metadata_url = uploader
+            .upload(
+                serde_json::to_vec(&metadata).unwrap(),
+                "application/json".to_owned(),
+            )
+            .await?;
 
         let outputs = hashmap! {
             "metadata_url".to_owned()=> Value::String(metadata_url),
-            "metadata".to_owned() => Value::NftMetadata(metadata),
+            "updated_metadata".to_owned() => Value::NftMetadata(metadata),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
 
@@ -144,65 +103,208 @@ impl ArweaveNftUpload {
     }
 }
 
-async fn upload_file(
-    pay_with_solana: bool,
-    solana_net: SolanaNet,
-    arweave_key_path: String,
-    fee_payer: Keypair,
-    file_path: String,
-    reward_mult: f32,
-) -> Result<String, Error> {
-    let (arweave, mut status) = if solana_net == SolanaNet::Mainnet || pay_with_solana {
-        let arweave = Arweave {
-            name: String::from("arweave"),
-            units: String::from("sol"),
-            base_url: url::Url::parse("https://arweave.net/").unwrap(),
-            crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into()).await?,
+pub struct Uploader {
+    cache: HashMap<String, String>,
+    fee_payer: String,
+    node_url: String,
+    ctx: Arc<Ctx>,
+}
+
+impl Uploader {
+    pub fn new(
+        solana_net: SolanaNet,
+        fee_payer: &Keypair,
+        ctx: Arc<Ctx>,
+    ) -> Result<Uploader, Error> {
+        let node_url = match solana_net {
+            SolanaNet::Mainnet => "https://node1.bundlr.network".to_owned(),
+            SolanaNet::Devnet => "https://devnet.bundlr.network".to_owned(),
+            SolanaNet::Testnet => return Err(Error::BundlrNotAvailableOnTestnet),
         };
 
-        let price_terms = arweave.get_price_terms(reward_mult).await?;
-
-        let status = arweave
-            .upload_file_from_path_with_sol(
-                file_path.into(),
-                None,
-                None,
-                None,
-                price_terms,
-                SolanaNet::Mainnet.url(),
-                url::Url::parse("https://arloader.io/sol").unwrap(),
-                &fee_payer,
-            )
-            .await?;
-
-        (arweave, status)
-    } else {
-        let arweave = Arweave {
-            name: String::from("arweave"),
-            units: String::from("winstons"),
-            base_url: url::Url::parse("https://arweave.net/").unwrap(),
-            crypto: arloader::crypto::Provider::from_keypair_path(arweave_key_path.into()).await?,
-        };
-
-        let price_terms = arweave.get_price_terms(reward_mult).await?;
-
-        let status = arweave
-            .upload_file_from_path(file_path.into(), None, None, None, price_terms)
-            .await?;
-
-        (arweave, status)
-    };
-
-    loop {
-        match status.status {
-            StatusCode::Confirmed => break,
-            StatusCode::NotFound => return Err(Error::ArweaveTxNotFound(status.id.to_string())),
-            StatusCode::Submitted | StatusCode::Pending => {
-                tokio::time::sleep(Duration::from_secs(1)).await;
-                status = arweave.get_status(&status.id).await?;
-            }
-        }
+        Ok(Uploader {
+            cache: HashMap::new(),
+            fee_payer: fee_payer.to_base58_string(),
+            node_url,
+            ctx,
+        })
     }
 
-    Ok(format!("https://arweave.net/{}", status.id.to_string()))
+    pub async fn lazy_fund(&self, file_path: &str) -> Result<(), Error> {
+        let mut needed_size = Self::get_file_size(file_path).await?;
+        needed_size += 10_000;
+
+        let needed_balance = self.get_price(needed_size).await?;
+        let needed_balance = needed_balance + needed_balance / 10;
+
+        let current_balance = self.get_current_balance().await?;
+
+        if current_balance < needed_balance {
+            self.fund(needed_balance - current_balance).await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn lazy_fund_metadata(&self, metadata: &NftMetadata) -> Result<(), Error> {
+        use std::collections::HashSet;
+
+        let mut processed = HashSet::new();
+        let mut needed_size = 0;
+
+        let metadata_size = serde_json::to_vec(metadata).unwrap().len() as u64;
+
+        needed_size += metadata_size;
+        needed_size += Self::get_file_size(&metadata.image).await?;
+        processed.insert(metadata.image.clone());
+
+        if let Some(properties) = metadata.properties.as_ref() {
+            if let Some(files) = properties.files.as_ref() {
+                for file in files.iter() {
+                    if processed.contains(&file.uri) {
+                        continue;
+                    }
+
+                    needed_size += Self::get_file_size(&file.uri).await?;
+                    processed.insert(file.uri.clone());
+                }
+            }
+        }
+
+        needed_size += 100_000; // tx_fee + some offset
+        needed_size += metadata_size * 4 / 10; // metadata change offset
+
+        let needed_balance = self.get_price(needed_size).await?;
+        let needed_balance = needed_balance + needed_balance / 10;
+
+        let current_balance = self.get_current_balance().await?;
+
+        if current_balance < needed_balance {
+            self.fund(needed_balance - current_balance).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn get_file_size(path: &str) -> Result<u64, Error> {
+        let file = tokio::fs::File::open(path).await?;
+
+        Ok(file.metadata().await?.len())
+    }
+
+    async fn get_price(&self, size: u64) -> Result<u64, Error> {
+        let resp = reqwest::get(format!("{}/price/solana/{}", &self.node_url, size,)).await?;
+
+        Ok(u64::from_str(&resp.text().await?).map_err(|_| Error::BundlrApiInvalidResponse)?)
+    }
+
+    async fn get_current_balance(&self) -> Result<u64, Error> {
+        #[derive(Deserialize, Serialize)]
+        struct Resp {
+            balance: String,
+        }
+
+        let keypair = Keypair::from_base58_string(&self.fee_payer);
+
+        let resp = reqwest::get(format!(
+            "{}/account/balance/solana/?address={}",
+            &self.node_url,
+            keypair.pubkey()
+        ))
+        .await?;
+
+        let resp: Resp = serde_json::from_str(&resp.text().await?)?;
+
+        Ok(u64::from_str(&resp.balance).map_err(|_| Error::BundlrApiInvalidResponse)?)
+    }
+
+    pub async fn fund(&self, amount: u64) -> Result<(), Error> {
+        #[derive(Deserialize, Serialize)]
+        struct Addresses {
+            solana: String,
+        }
+
+        #[derive(Deserialize, Serialize)]
+        struct Info {
+            addresses: Addresses,
+        }
+
+        let resp = reqwest::get(format!("{}/info", &self.node_url)).await?;
+
+        let info: Info = serde_json::from_str(&resp.text().await?)?;
+
+        let recipient = Pubkey::from_str(&info.addresses.solana)?;
+
+        let fee_payer = Keypair::from_base58_string(&self.fee_payer);
+
+        let recent_blockhash = self.ctx.client.get_latest_blockhash()?;
+
+        let tx = solana_sdk::system_transaction::transfer(
+            &fee_payer,
+            &recipient,
+            amount,
+            recent_blockhash,
+        );
+
+        let signature = self.ctx.client.send_and_confirm_transaction(&tx)?;
+
+        let resp = reqwest::Client::new()
+            .post(format!("{}/account/balance/solana", &self.node_url))
+            .json(&serde_json::json!({
+                "tx_id": signature.to_string(),
+            }))
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            return Err(Error::BundlrTxRegisterFailed(signature.to_string()));
+        }
+
+        Ok(())
+    }
+
+    pub async fn upload_file(&mut self, file_path: &str) -> Result<String, Error> {
+        if let Some(url) = self.cache.get(file_path) {
+            return Ok(url.clone());
+        }
+
+        let content_type = mime_guess::from_path(file_path)
+            .first()
+            .ok_or(Error::MimeTypeNotFound)?
+            .to_string();
+        let data = tokio::fs::read(file_path).await?;
+
+        let url = self.upload(data, content_type).await?;
+
+        self.cache.insert(file_path.to_owned(), url.clone());
+
+        Ok(url)
+    }
+
+    pub async fn upload(&self, data: Vec<u8>, content_type: String) -> Result<String, Error> {
+        let bundlr = Bundlr::new(
+            self.node_url.clone(),
+            "solana".to_string(),
+            "sol".to_string(),
+            SolanaSigner::from_base58(&self.fee_payer),
+        );
+
+        let tx = bundlr.create_transaction_with_tags(
+            data,
+            vec![Tag::new("Content-Type".into(), content_type)],
+        );
+
+        let resp: BundlrResponse = serde_json::from_value(bundlr.send_transaction(tx).await?)?;
+
+        Ok(format!("https://arweave.net/{}", resp.id))
+    }
 }
+
+#[derive(Deserialize)]
+struct BundlrResponse {
+    id: String,
+}
+
+/*
+H6RYSz54qPAMNKKWDqZa418NU3695DofXat8FDkxFcex
+*/

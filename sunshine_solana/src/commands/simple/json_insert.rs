@@ -40,7 +40,7 @@ impl JsonInsert {
             Some(v) => JsonValue::try_from(v.clone())?,
             None => match inputs.remove("value") {
                 Some(v) => JsonValue::try_from(v)?,
-                _ => return Err(Error::ArgumentNotFound("value".to_string())),
+                None => JsonValue::Null,
             },
         };
 

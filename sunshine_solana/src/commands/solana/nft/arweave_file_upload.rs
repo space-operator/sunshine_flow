@@ -3,7 +3,7 @@ use std::time::Duration;
 use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
-use super::arweave_bundlr::Uploader;
+use super::arweave_nft_upload::Uploader;
 use arloader::crypto::Provider;
 use dashmap::DashMap;
 use maplit::hashmap;

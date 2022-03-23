@@ -13,10 +13,10 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ApproveUseAuthority {
-    pub user: Option<NodeId>,
-    pub owner: Option<NodeId>,
+    pub use_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>, // keypair
-    pub token_account: Option<NodeId>,
+    pub account: Option<Option<NodeId>>,
+    pub owner: Option<NodeId>,
     pub token: Option<NodeId>,
     pub burner: Option<NodeId>,
     pub number_of_uses: Option<u64>,
@@ -28,12 +28,12 @@ impl ApproveUseAuthority {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let user = match self.user {
+        let use_authority = match self.use_authority {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("user") {
+            None => match inputs.remove("use_authority") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("user".to_string())),
+                _ => return Err(Error::ArgumentNotFound("use_authority".to_string())),
             },
         };
 
@@ -55,12 +55,21 @@ impl ApproveUseAuthority {
             },
         };
 
-        let token_account = match self.token_account {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token_account") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token_account".to_string())),
+        let account = match self.account {
+            Some(s) => match s {
+                Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                None => None,
+            },
+            None => match inputs.remove("account") {
+                Some(Value::NodeIdOpt(s)) => match s {
+                    Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                    None => None,
+                },
+                Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
+                Some(Value::Pubkey(p)) => Some(p.into()),
+                Some(Value::Empty) => None,
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("account".to_string())),
             },
         };
 
@@ -105,19 +114,23 @@ impl ApproveUseAuthority {
             &program_id.as_ref(),
             &token.as_ref(),
             mpl_token_metadata::state::USER.as_bytes(),
-            &user.as_ref(),
+            &use_authority.as_ref(),
         ];
 
         let (use_authority_record_pubkey, _) =
             Pubkey::find_program_address(use_authority_seeds, &program_id);
 
+        let account = account.unwrap_or_else(|| {
+            spl_associated_token_account::get_associated_token_address(&owner.pubkey(), &token)
+        });
+
         let (minimum_balance_for_rent_exemption, instructions) = command_approve_use_authority(
             &ctx.client,
             use_authority_record_pubkey,
-            user,
+            use_authority,
             owner.pubkey(),
             fee_payer.pubkey(),
-            token_account,
+            account,
             metadata_pubkey,
             token,
             burner,
@@ -140,7 +153,12 @@ impl ApproveUseAuthority {
 
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
-            "use_authority_record_pubkey".to_owned() => Value::Pubkey(use_authority_record_pubkey.into()),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
+            "token".to_owned()=> Value::Pubkey(token.into()),
+            "use_authority".to_owned() => Value::Pubkey(use_authority.into()),
+            "owner".to_owned() => Value::Keypair(owner.into()),
+            "account".to_owned() => Value::Pubkey(account.into()),
+            "burner".to_owned() => Value::Pubkey(burner.into()),
         };
 
         Ok(outputs)

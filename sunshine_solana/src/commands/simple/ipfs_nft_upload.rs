@@ -67,7 +67,7 @@ impl IpfsNftUpload {
 
         let outputs = hashmap! {
             "metadata_cid".to_owned()=> Value::String(metadata_cid.clone()),
-            "metadata".to_owned() => Value::NftMetadata(metadata),
+            "updated_metadata".to_owned() => Value::NftMetadata(metadata),
             "metadata_url".to_owned() => Value::String(format!("ipfs://{}", metadata_cid)),
         };
 

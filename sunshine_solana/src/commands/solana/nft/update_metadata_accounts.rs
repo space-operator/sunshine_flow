@@ -9,6 +9,8 @@ use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use sunshine_core::msg::NodeId;
 
+use serde_json::Value as JsonValue;
+
 use super::create_metadata_accounts::{NftCollection, NftUses};
 use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCreator, Value};
 
@@ -27,7 +29,7 @@ pub struct UpdateMetadataAccounts {
 pub struct MetadataAccountData {
     pub name: String,
     pub symbol: String,
-    pub uri: String,
+    pub metadata_uri: String,
     pub seller_fee_basis_points: u16,
     pub creators: Option<Vec<NftCreator>>,
     pub collection: Option<NftCollection>,
@@ -39,7 +41,7 @@ impl Into<DataV2> for MetadataAccountData {
         DataV2 {
             name: self.name,
             symbol: self.symbol,
-            uri: self.uri,
+            uri: self.metadata_uri,
             seller_fee_basis_points: self.seller_fee_basis_points,
             creators: self
                 .creators
@@ -101,6 +103,9 @@ impl UpdateMetadataAccounts {
             Some(data) => data.map(Into::into),
             None => match inputs.remove("data") {
                 Some(Value::MetadataAccountData(data)) => Some(data.into()),
+                Some(Value::Json(json)) => Some(
+                    serde_json::from_value::<MetadataAccountData>(JsonValue::from(json))?.into(),
+                ),
                 Some(Value::Empty) => None,
                 None => None,
                 _ => return Err(Error::ArgumentNotFound("data".to_string())),
@@ -165,7 +170,7 @@ impl UpdateMetadataAccounts {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
             "token".to_owned()=>Value::Pubkey(token.into()),
-            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
+            "metadata_account".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
         };
 
         Ok(outputs)

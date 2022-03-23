@@ -13,13 +13,12 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Utilize {
-    pub token_account: Option<NodeId>,
     pub token: Option<NodeId>,
-    pub use_authority_record_pda: Option<Option<NodeId>>,
     pub use_authority: Option<NodeId>, // keypair
     pub fee_payer: Option<NodeId>,     // keypair
+    pub account: Option<Option<NodeId>>,
     pub owner: Option<NodeId>,
-    pub burner: Option<Option<NodeId>>,
+    pub burner: Option<NodeId>,
     pub number_of_uses: Option<u64>,
 }
 
@@ -29,45 +28,12 @@ impl Utilize {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token_account = match self.token_account {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token_account") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token_account".to_string())),
-            },
-        };
-
         let token = match self.token {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("token") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
                 _ => return Err(Error::ArgumentNotFound("token".to_string())),
-            },
-        };
-
-        let use_authority_record_pda = match self.use_authority_record_pda {
-            Some(s) => match s {
-                Some(use_authority_record_pda) => {
-                    Some(ctx.get_pubkey_by_id(use_authority_record_pda).await?)
-                }
-                None => None,
-            },
-            None => match inputs.remove("use_authority_record_pda") {
-                Some(Value::NodeIdOpt(s)) => match s {
-                    Some(use_authority_record_pda) => {
-                        Some(ctx.get_pubkey_by_id(use_authority_record_pda).await?)
-                    }
-                    None => None,
-                },
-                Some(Value::Keypair(k)) => {
-                    let keypair: Keypair = k.into();
-                    Some(keypair.pubkey())
-                }
-                Some(Value::Pubkey(k)) => Some(k.into()),
-                Some(Value::Empty) => None,
-                _ => None,
             },
         };
 
@@ -89,6 +55,24 @@ impl Utilize {
             },
         };
 
+        let account = match self.account {
+            Some(s) => match s {
+                Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                None => None,
+            },
+            None => match inputs.remove("account") {
+                Some(Value::NodeIdOpt(s)) => match s {
+                    Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                    None => None,
+                },
+                Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
+                Some(Value::Pubkey(p)) => Some(p.into()),
+                Some(Value::Empty) => None,
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("account".to_string())),
+            },
+        };
+
         let owner = match self.owner {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("owner") {
@@ -99,22 +83,11 @@ impl Utilize {
         };
 
         let burner = match self.burner {
-            Some(s) => match s {
-                Some(burner) => Some(ctx.get_pubkey_by_id(burner).await?),
-                None => None,
-            },
+            Some(s) => ctx.get_pubkey_by_id(s).await?,
             None => match inputs.remove("burner") {
-                Some(Value::NodeIdOpt(s)) => match s {
-                    Some(burner) => Some(ctx.get_pubkey_by_id(burner).await?),
-                    None => None,
-                },
-                Some(Value::Keypair(k)) => {
-                    let keypair: Keypair = k.into();
-                    Some(keypair.pubkey())
-                }
-                Some(Value::Pubkey(k)) => Some(k.into()),
-                Some(Value::Empty) => None,
-                _ => None,
+                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
+                Some(v) => v.try_into()?,
+                _ => return Err(Error::ArgumentNotFound("burner".to_string())),
             },
         };
 
@@ -136,14 +109,17 @@ impl Utilize {
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
 
+        let account = account.unwrap_or_else(|| {
+            spl_associated_token_account::get_associated_token_address(&owner, &token)
+        });
+
         let (minimum_balance_for_rent_exemption, instructions) = command_utilize(
             metadata_pubkey,
-            token_account,
+            account,
             token,
-            use_authority_record_pda,
             use_authority.pubkey(),
             owner,
-            burner,
+            Some(burner),
             number_of_uses,
         )?;
 
@@ -163,6 +139,12 @@ impl Utilize {
 
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
+            "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
+            "token".to_owned()=> Value::Pubkey(token.into()),
+            "use_authority".to_owned() => Value::Keypair(use_authority.into()),
+            "owner".to_owned() => Value::Pubkey(owner.into()),
+            "account".to_owned() => Value::Pubkey(account.into()),
+            "burner".to_owned() => Value::Pubkey(burner.into()),
         };
 
         Ok(outputs)
@@ -173,7 +155,6 @@ pub fn command_utilize(
     metadata_pubkey: Pubkey,
     token_account: Pubkey,
     mint: Pubkey,
-    use_authority_record_pda: Option<Pubkey>,
     use_authority: Pubkey,
     owner: Pubkey,
     burner: Option<Pubkey>,
@@ -184,7 +165,7 @@ pub fn command_utilize(
         metadata_pubkey,
         token_account,
         mint,
-        use_authority_record_pda,
+        None,
         use_authority,
         owner,
         burner,
