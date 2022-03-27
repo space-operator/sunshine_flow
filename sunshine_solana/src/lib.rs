@@ -437,9 +437,10 @@ impl FlowContext {
 
                 if let Some(output) = outputs.get("__print_output") {
                     let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
-
+                    let output_type = &output.kind().to_string();
+                    // dbg!(output_type);
                     let output = match output {
-                        Value::String(output) => output,
+                        Value::String(output) => output_type.clone() + "&&&" + output,
                         _ => unreachable!(),
                     };
 
@@ -752,6 +753,16 @@ pub struct NftMetadata {
     pub properties: Option<NftMetadataProperties>,
 }
 
+impl From<serde_json::Value> for NftMetadata {
+    fn from(val: serde_json::Value) -> Self {
+        let value = serde_json::to_value(val).unwrap();
+
+        let nft_metadata: NftMetadata = serde_json::from_value(value).unwrap();
+
+        nft_metadata
+    }
+}
+
 impl fmt::Display for NftMetadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&serde_json::to_string(&self).unwrap())
@@ -788,15 +799,25 @@ pub struct NftMetadataFile {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NftCreator {
-    pub address: Pubkey,
+    pub address: WrappedPubkey,
     pub verified: bool,
-    pub share: u8,
+    pub share: u8, //in percentage not basis points
+}
+
+impl From<serde_json::Value> for NftCreator {
+    fn from(val: serde_json::Value) -> Self {
+        let value = serde_json::to_value(val).unwrap();
+
+        let nft_metadata: NftCreator = serde_json::from_value(value).unwrap();
+
+        nft_metadata
+    }
 }
 
 impl From<NftCreator> for Creator {
     fn from(nft_creator: NftCreator) -> Creator {
         Creator {
-            address: nft_creator.address,
+            address: nft_creator.address.into(),
             verified: nft_creator.verified,
             share: nft_creator.share,
         }
@@ -825,7 +846,7 @@ impl Value {
             Value::NodeIdOpt(_) => ValueKind::NodeIdOpt,
             Value::NftCreators(_) => ValueKind::NftCreators,
             Value::MetadataAccountData(_) => ValueKind::MetadataAccountData,
-            Value::Uses(_) => ValueKind::Uses,
+            Value::Uses(_) => ValueKind::NftUses,
             Value::NftMetadata(_) => ValueKind::NftMetadata,
             Value::Operator(_) => ValueKind::Operator,
             Value::Json(_) => ValueKind::Json,
@@ -852,7 +873,7 @@ impl TryInto<Pubkey> for Value {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, ParseDisplay)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ParseDisplay /* , derive_more::Display */)]
 #[display(style = "snake_case")]
 pub enum ValueKind {
     Integer,
@@ -874,7 +895,7 @@ pub enum ValueKind {
     NodeIdOpt,
     NftCreators,
     MetadataAccountData,
-    Uses,
+    NftUses,
     NftMetadata,
     Operator,
     Json,

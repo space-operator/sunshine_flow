@@ -36,6 +36,16 @@ pub struct MetadataAccountData {
     pub uses: Option<NftUses>,
 }
 
+impl From<serde_json::Value> for MetadataAccountData {
+    fn from(val: serde_json::Value) -> Self {
+        let value = serde_json::to_value(val).unwrap();
+
+        let metadata: MetadataAccountData = serde_json::from_value(value).unwrap();
+
+        metadata
+    }
+}
+
 impl Into<DataV2> for MetadataAccountData {
     fn into(self) -> DataV2 {
         DataV2 {

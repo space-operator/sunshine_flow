@@ -178,7 +178,7 @@ impl CreateMetadataAccounts {
                     .flatten()
             })
             .flatten();
-
+        dbg!(creators.clone());
         let program_id = mpl_token_metadata::id();
 
         let metadata_seeds = &[

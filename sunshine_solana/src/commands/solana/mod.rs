@@ -14,8 +14,8 @@ use sunshine_core::msg::NodeId;
 mod instructions;
 
 pub mod add_pubkey;
-pub mod create_account;
-pub mod create_token;
+pub mod create_mint_account;
+pub mod create_token_account;
 pub mod delete_keypair;
 pub mod delete_pubkey;
 pub mod generate_keypair;
@@ -23,8 +23,8 @@ pub mod get_balance;
 pub mod mint_token;
 pub mod nft;
 pub mod request_airdrop;
-pub mod transfer;
 pub mod transfer_solana;
+pub mod transfer_token;
 
 const KEYPAIR_MARKER: &str = "KEYPAIR_MARKER";
 const NAME_MARKER: &str = "NAME_MARKER";
@@ -232,12 +232,12 @@ pub enum Kind {
     DeleteKeypair(delete_keypair::DeleteKeypair),
     AddPubkey(add_pubkey::AddPubkey),
     DeletePubkey(delete_pubkey::DeletePubkey),
-    CreateAccount(create_account::CreateAccount),
+    CreateTokenAccount(create_token_account::CreateTokenAccount),
     GetBalance(get_balance::GetBalance),
-    CreateToken(create_token::CreateToken),
+    CreateMintAccount(create_mint_account::CreateMintAccount),
     RequestAirdrop(request_airdrop::RequestAirdrop),
     MintToken(mint_token::MintToken),
-    Transfer(transfer::Transfer),
+    TransferToken(transfer_token::TransferToken),
     Nft(nft::Command),
     TransferSolana(transfer_solana::TransferSolana),
 }
@@ -249,12 +249,12 @@ impl Kind {
             Kind::DeleteKeypair(_) => CommandKind::DeleteKeypair,
             Kind::AddPubkey(_) => CommandKind::AddPubkey,
             Kind::DeletePubkey(_) => CommandKind::DeletePubkey,
-            Kind::CreateAccount(_) => CommandKind::CreateAccount,
+            Kind::CreateTokenAccount(_) => CommandKind::CreateTokenAccount,
             Kind::GetBalance(_) => CommandKind::GetBalance,
-            Kind::CreateToken(_) => CommandKind::CreateToken,
+            Kind::CreateMintAccount(_) => CommandKind::CreateMintAccount,
             Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
             Kind::MintToken(_) => CommandKind::MintToken,
-            Kind::Transfer(_) => CommandKind::Transfer,
+            Kind::TransferToken(_) => CommandKind::TransferToken,
             Kind::Nft(n) => CommandKind::Nft(n.kind()),
             Kind::TransferSolana(_) => CommandKind::TransferSolana,
         }
@@ -267,12 +267,12 @@ pub enum CommandKind {
     DeleteKeypair,
     AddPubkey,
     DeletePubkey,
-    CreateAccount,
+    CreateTokenAccount,
     GetBalance,
-    CreateToken,
+    CreateMintAccount,
     RequestAirdrop,
     MintToken,
-    Transfer,
+    TransferToken,
     Nft(nft::CommandKind),
     TransferSolana,
 }
@@ -287,12 +287,12 @@ impl Command {
             Kind::DeleteKeypair(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::AddPubkey(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::DeletePubkey(k) => k.run(self.ctx.clone(), inputs).await,
-            Kind::CreateAccount(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::CreateTokenAccount(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::GetBalance(k) => k.run(self.ctx.clone(), inputs).await,
-            Kind::CreateToken(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::CreateMintAccount(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::RequestAirdrop(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::MintToken(k) => k.run(self.ctx.clone(), inputs).await,
-            Kind::Transfer(k) => k.run(self.ctx.clone(), inputs).await,
+            Kind::TransferToken(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::Nft(k) => k.run(self.ctx.clone(), inputs).await,
             Kind::TransferSolana(k) => k.run(self.ctx.clone(), inputs).await,
         }
@@ -304,12 +304,12 @@ impl Command {
             Kind::DeleteKeypair(_) => CommandKind::DeleteKeypair,
             Kind::AddPubkey(_) => CommandKind::AddPubkey,
             Kind::DeletePubkey(_) => CommandKind::DeletePubkey,
-            Kind::CreateAccount(_) => CommandKind::CreateAccount,
+            Kind::CreateTokenAccount(_) => CommandKind::CreateTokenAccount,
             Kind::GetBalance(_) => CommandKind::GetBalance,
-            Kind::CreateToken(_) => CommandKind::CreateToken,
+            Kind::CreateMintAccount(_) => CommandKind::CreateMintAccount,
             Kind::RequestAirdrop(_) => CommandKind::RequestAirdrop,
             Kind::MintToken(_) => CommandKind::MintToken,
-            Kind::Transfer(_) => CommandKind::Transfer,
+            Kind::TransferToken(_) => CommandKind::TransferToken,
             Kind::Nft(n) => CommandKind::Nft(n.kind()),
             Kind::TransferSolana(_) => CommandKind::TransferSolana,
         }

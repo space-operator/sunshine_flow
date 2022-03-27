@@ -77,7 +77,7 @@ impl IpfsUpload {
 
         let resp_body: JsonValue = resp.json().await?;
 
-        let image_cid = resp_body
+        let file_cid = resp_body
             .as_object()
             .unwrap()
             .get("IpfsHash")
@@ -87,7 +87,7 @@ impl IpfsUpload {
             .to_owned();
 
         let outputs = hashmap! {
-            "image_cid".to_owned()=> Value::String(image_cid),
+            "file_cid".to_owned()=> Value::String(file_cid),
         };
 
         Ok(outputs)

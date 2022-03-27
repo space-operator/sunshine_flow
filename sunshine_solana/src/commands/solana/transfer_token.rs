@@ -15,7 +15,7 @@ use super::mint_token::resolve_mint_info;
 use super::Ctx;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Transfer {
+pub struct TransferToken {
     pub fee_payer: Option<NodeId>,
     pub token: Option<NodeId>,
     pub amount: Option<f64>,
@@ -27,7 +27,7 @@ pub struct Transfer {
     pub memo: Option<Option<String>>,
 }
 
-impl Transfer {
+impl TransferToken {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
@@ -125,7 +125,7 @@ impl Transfer {
             },
         };
 
-        let (minimum_balance_for_rent_exemption, instructions, recipient_acc) = command_transfer(
+        let (minimum_balance_for_rent_exemption, instructions, recipient_acc) = command_transfer_token(
             &ctx.client,
             &fee_payer.pubkey(),
             token,
@@ -164,7 +164,7 @@ impl Transfer {
 // https://spl.solana.com/associated-token-account
 // https://github.com/solana-labs/solana-program-library/blob/master/token/cli/src/main.rs#L555
 #[allow(clippy::too_many_arguments)]
-pub fn command_transfer(
+pub fn command_transfer_token(
     client: &RpcClient,
     fee_payer: &Pubkey,
     token: Pubkey,

@@ -15,14 +15,14 @@ use crate::{error::Error, Value};
 use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CreateAccount {
+pub struct CreateTokenAccount {
     pub owner: Option<NodeId>,
     pub fee_payer: Option<NodeId>,
     pub token: Option<NodeId>,
     pub account: Option<Option<NodeId>>,
 }
 
-impl CreateAccount {
+impl CreateTokenAccount {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
@@ -71,7 +71,7 @@ impl CreateAccount {
             },
         };
 
-        let (minimum_balance_for_rent_exemption, instructions) = command_create_account(
+        let (minimum_balance_for_rent_exemption, instructions) = command_create_token_account(
             &ctx.client,
             fee_payer.pubkey(),
             token,
@@ -119,7 +119,7 @@ impl CreateAccount {
     }
 }
 
-pub fn command_create_account(
+pub fn command_create_token_account(
     client: &RpcClient,
     fee_payer: Pubkey,
     token: Pubkey,
@@ -176,3 +176,5 @@ pub fn command_create_account(
 
     Ok((minimum_balance_for_rent_exemption, instructions))
 }
+
+//

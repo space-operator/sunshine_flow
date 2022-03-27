@@ -13,7 +13,7 @@ use sunshine_solana::commands::simple::ipfs_upload::IpfsUpload;
 use sunshine_solana::commands::simple::json_extract::JsonExtract;
 use sunshine_solana::commands::solana::get_balance::GetBalance;
 use sunshine_solana::commands::solana::nft::approve_use_authority::ApproveUseAuthority;
-use sunshine_solana::commands::solana::nft::arweave_upload::ArweaveUpload;
+// use sunshine_solana::commands::solana::nft::arweave_upload::ArweaveUpload;
 use sunshine_solana::commands::solana::nft::create_master_edition::{
     Arg as MasterEditionArg, CreateMasterEdition,
 };
@@ -26,15 +26,15 @@ use sunshine_solana::commands::solana::nft::update_metadata_accounts::{
 };
 use sunshine_solana::commands::solana::nft::utilize::Utilize;
 use sunshine_solana::commands::solana::request_airdrop::RequestAirdrop;
-use sunshine_solana::commands::solana::transfer::Transfer;
+use sunshine_solana::commands::solana::transfer_token::TransferToken;
 use sunshine_solana::commands::solana::{self, nft, Kind, SolanaNet};
 use sunshine_solana::{
     commands, FlowContext, NftCreator, Schedule, COMMAND_MARKER, COMMAND_NAME_MARKER,
     CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
 };
 
-use sunshine_solana::commands::solana::create_account::CreateAccount;
-use sunshine_solana::commands::solana::create_token::CreateToken;
+use sunshine_solana::commands::solana::create_mint_account::CreateMintAccount;
+use sunshine_solana::commands::solana::create_token_account::CreateTokenAccount;
 use sunshine_solana::commands::solana::generate_keypair::GenerateKeypair;
 use sunshine_solana::commands::solana::mint_token::MintToken;
 
@@ -1440,37 +1440,37 @@ async fn main() {
     .await;
     */
 
-    let node25 = add_solana_node(
-        db.clone(),
-        "".into(),
-        commands::Config::Solana(Kind::Nft(nft::Command::ArweaveUpload(ArweaveUpload {
-            fee_payer: None,
-            reward_mult: Some(10.),
-            file_path: Some("image.jpg".into()),
-            arweave_key_path: Some(
-                "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
-            ),
-            pay_with_solana: None,
-        }))),
-        false,
-        vec![
-            (
-                node0,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "keypair",
-                    INPUT_ARG_NAME_MARKER: "fee_payer",
-                }),
-            ),
-            (
-                node1,
-                serde_json::json!({
-                    OUTPUT_ARG_NAME_MARKER: "signature",
-                    INPUT_ARG_NAME_MARKER: "signature",
-                }),
-            ),
-        ],
-    )
-    .await;
+    // let node25 = add_solana_node(
+    //     db.clone(),
+    //     "".into(),
+    //     commands::Config::Solana(Kind::Nft(nft::Command::ArweaveUpload(ArweaveUpload {
+    //         fee_payer: None,
+    //         reward_mult: Some(10.),
+    //         file_path: Some("image.jpg".into()),
+    //         arweave_key_path: Some(
+    //             "arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json".into(),
+    //         ),
+    //         pay_with_solana: None,
+    //     }))),
+    //     false,
+    //     vec![
+    //         (
+    //             node0,
+    //             serde_json::json!({
+    //                 OUTPUT_ARG_NAME_MARKER: "keypair",
+    //                 INPUT_ARG_NAME_MARKER: "fee_payer",
+    //             }),
+    //         ),
+    //         (
+    //             node1,
+    //             serde_json::json!({
+    //                 OUTPUT_ARG_NAME_MARKER: "signature",
+    //                 INPUT_ARG_NAME_MARKER: "signature",
+    //             }),
+    //         ),
+    //     ],
+    // )
+    // .await;
 
     let node26 = add_node(
         db.clone(),

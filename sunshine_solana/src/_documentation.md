@@ -19,3 +19,11 @@ https://docs.solana.com/cluster/bench-tps
 https://github.com/Bundlr-Network/rust-sdk
 https://docs.bundlr.network/docs/client/cli
 https://docs.arweave.org/developers/server/http-api#upload-chunks
+
+
+getMinimumBalanceForRentExemption
+https://docs.solana.com/developing/clients/jsonrpc-api#getminimumbalanceforrentexemption
+
+
+Get Transaction
+https://docs.solana.com/developing/clients/jsonrpc-api#gettransaction

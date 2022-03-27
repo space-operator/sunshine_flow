@@ -12,7 +12,7 @@ use crate::{error::Error, CommandResult, Value};
 use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct CreateToken {
+pub struct CreateMintAccount {
     pub fee_payer: Option<NodeId>,
     pub decimals: Option<u8>,
     pub authority: Option<NodeId>,
@@ -20,7 +20,7 @@ pub struct CreateToken {
     pub memo: Option<String>,
 }
 
-impl CreateToken {
+impl CreateMintAccount {
     pub(crate) async fn run(
         &self,
         ctx: Arc<Ctx>,
@@ -71,7 +71,7 @@ impl CreateToken {
             },
         };
 
-        let (minimum_balance_for_rent_exemption, instructions) = command_create_token(
+        let (minimum_balance_for_rent_exemption, instructions) = command_create_mint_account(
             &ctx.client,
             &fee_payer.pubkey(),
             decimals,
@@ -105,7 +105,7 @@ impl CreateToken {
     }
 }
 
-pub fn command_create_token(
+pub fn command_create_mint_account(
     rpc_client: &RpcClient,
     fee_payer: &Pubkey,
     decimals: u8,
