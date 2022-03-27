@@ -83,8 +83,13 @@ impl FlowContext {
 
         let (_, log_graph_id) = db.create_graph(Default::default()).await.unwrap();
 
-        let timestamp = chrono::offset::Utc::now().timestamp_millis();
-        let timestamp = JsonValue::Number(serde_json::Number::from(timestamp));
+        // let timestamp = chrono::offset::Utc::now().timestamp_millis();
+        // let timestamp = JsonValue::Number(serde_json::Number::from(timestamp));
+        let timestamp = chrono::offset::Utc::now()
+            .format("%Y-%m-%d %H%M UTC")
+            .to_string();
+
+        let timestamp = JsonValue::String(timestamp);
 
         let mut props = Properties::default();
 
@@ -437,10 +442,8 @@ impl FlowContext {
 
                 if let Some(output) = outputs.get("__print_output") {
                     let mut props = db.read_node(node.log_node_id).await.unwrap().properties;
-                    let output_type = &output.kind().to_string();
-                    // dbg!(output_type);
                     let output = match output {
-                        Value::String(output) => output_type.clone() + "&&&" + output,
+                        Value::String(output) => output,
                         _ => unreachable!(),
                     };
 

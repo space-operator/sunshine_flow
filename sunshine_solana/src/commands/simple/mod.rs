@@ -39,8 +39,11 @@ impl Command {
                 let arg = inputs
                     .get("print")
                     .ok_or_else(|| Error::ArgumentNotFound("print".into()))?;
+                // dbg!(arg.clone());
 
-                let to_print = format!("{}", arg);
+                let arg_type = arg.kind().to_string();
+
+                let to_print = format!("{}&&&{}", arg_type, arg);
 
                 println!("{}", to_print);
 
