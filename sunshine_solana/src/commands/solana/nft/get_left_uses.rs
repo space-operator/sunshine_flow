@@ -13,7 +13,7 @@ use crate::{Error, Value};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GetLeftUses {
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
 }
 
 impl GetLeftUses {
@@ -22,12 +22,12 @@ impl GetLeftUses {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -36,7 +36,7 @@ impl GetLeftUses {
         let metadata_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
         ];
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);

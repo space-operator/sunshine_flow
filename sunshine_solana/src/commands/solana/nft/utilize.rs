@@ -13,7 +13,7 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Utilize {
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub use_authority: Option<NodeId>, // keypair
     pub fee_payer: Option<NodeId>,     // keypair
     pub account: Option<Option<NodeId>>,
@@ -28,12 +28,12 @@ impl Utilize {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -104,19 +104,19 @@ impl Utilize {
         let metadata_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
         ];
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
 
         let account = account.unwrap_or_else(|| {
-            spl_associated_token_account::get_associated_token_address(&owner, &token)
+            spl_associated_token_account::get_associated_token_address(&owner, &mint_account)
         });
 
         let (minimum_balance_for_rent_exemption, instructions) = command_utilize(
             metadata_pubkey,
             account,
-            token,
+            mint_account,
             use_authority.pubkey(),
             owner,
             Some(burner),
@@ -140,7 +140,7 @@ impl Utilize {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
-            "token".to_owned()=> Value::Pubkey(token.into()),
+            "mint_account".to_owned()=> Value::Pubkey(mint_account.into()),
             "use_authority".to_owned() => Value::Keypair(use_authority.into()),
             "owner".to_owned() => Value::Pubkey(owner.into()),
             "account".to_owned() => Value::Pubkey(account.into()),

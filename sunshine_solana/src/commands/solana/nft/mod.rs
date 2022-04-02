@@ -12,6 +12,7 @@ pub mod create_metadata_accounts;
 pub mod get_left_uses;
 pub mod update_metadata_accounts;
 pub mod utilize;
+pub mod verify_collection;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Command {
@@ -23,6 +24,7 @@ pub enum Command {
     GetLeftUses(get_left_uses::GetLeftUses),
     ArweaveNftUpload(arweave_nft_upload::ArweaveNftUpload),
     ArweaveFileUpload(arweave_file_upload::ArweaveFileUpload),
+    VerifyCollection(verify_collection::VerifyCollection),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -35,6 +37,7 @@ pub enum CommandKind {
     GetLeftUses,
     ArweaveNftUpload,
     ArweaveFileUpload,
+    VerifyCollection,
 }
 
 impl Command {
@@ -52,6 +55,7 @@ impl Command {
             Command::GetLeftUses(k) => k.run(ctx, inputs).await,
             Command::ArweaveNftUpload(k) => k.run(ctx, inputs).await,
             Command::ArweaveFileUpload(k) => k.run(ctx, inputs).await,
+            Command::VerifyCollection(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -65,6 +69,7 @@ impl Command {
             Command::GetLeftUses(_) => CommandKind::GetLeftUses,
             Command::ArweaveNftUpload(_) => CommandKind::ArweaveNftUpload,
             Command::ArweaveFileUpload(_) => CommandKind::ArweaveFileUpload,
+            Command::VerifyCollection(_) => CommandKind::VerifyCollection,
         }
     }
 }

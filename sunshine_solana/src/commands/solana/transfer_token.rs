@@ -17,10 +17,10 @@ use super::Ctx;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TransferToken {
     pub fee_payer: Option<NodeId>,
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub amount: Option<f64>,
     pub recipient: Option<NodeId>,
-    pub sender: Option<Option<NodeId>>,
+    pub sender_token_account: Option<Option<NodeId>>,
     pub sender_owner: Option<NodeId>,
     pub allow_unfunded: Option<bool>,
     pub fund_recipient: Option<bool>,
@@ -42,12 +42,12 @@ impl TransferToken {
             },
         };
 
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -68,22 +68,26 @@ impl TransferToken {
             },
         };
 
-        let sender = match self.sender {
+        let sender_token_account = match self.sender_token_account {
             //TODOrename sender_account
             Some(s) => match s {
-                Some(sender) => Some(ctx.get_pubkey_by_id(sender).await?),
+                Some(sender_token_account) => {
+                    Some(ctx.get_pubkey_by_id(sender_token_account).await?)
+                }
                 None => None,
             },
-            None => match inputs.remove("sender") {
+            None => match inputs.remove("sender_token_account") {
                 Some(Value::NodeIdOpt(s)) => match s {
-                    Some(sender) => Some(ctx.get_pubkey_by_id(sender).await?),
+                    Some(sender_token_account) => {
+                        Some(ctx.get_pubkey_by_id(sender_token_account).await?)
+                    }
                     None => None,
                 },
                 Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
                 Some(Value::Pubkey(p)) => Some(p.into()),
                 Some(Value::Empty) => None,
                 None => None,
-                _ => return Err(Error::ArgumentNotFound("sender".to_string())),
+                _ => return Err(Error::ArgumentNotFound("sender_token_account".to_string())),
             },
         };
 
@@ -125,18 +129,19 @@ impl TransferToken {
             },
         };
 
-        let (minimum_balance_for_rent_exemption, instructions, recipient_acc) = command_transfer_token(
-            &ctx.client,
-            &fee_payer.pubkey(),
-            token,
-            amount,
-            recipient,
-            sender,
-            sender_owner.pubkey(),
-            allow_unfunded,
-            fund_recipient,
-            memo,
-        )?;
+        let (minimum_balance_for_rent_exemption, instructions, recipient_acc) =
+            command_transfer_token(
+                &ctx.client,
+                &fee_payer.pubkey(),
+                mint_account,
+                amount,
+                recipient,
+                sender_token_account,
+                sender_owner.pubkey(),
+                allow_unfunded,
+                fund_recipient,
+                memo,
+            )?;
 
         let fee_payer_pubkey = fee_payer.pubkey();
 

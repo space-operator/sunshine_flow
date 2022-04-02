@@ -15,9 +15,9 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 pub struct ApproveUseAuthority {
     pub use_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>, // keypair
-    pub account: Option<Option<NodeId>>,
+    pub token_account: Option<Option<NodeId>>,
     pub owner: Option<NodeId>,
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub burner: Option<NodeId>,
     pub number_of_uses: Option<u64>,
 }
@@ -55,30 +55,30 @@ impl ApproveUseAuthority {
             },
         };
 
-        let account = match self.account {
+        let token_account = match self.token_account {
             Some(s) => match s {
-                Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                Some(token_account) => Some(ctx.get_pubkey_by_id(token_account).await?),
                 None => None,
             },
-            None => match inputs.remove("account") {
+            None => match inputs.remove("token_account") {
                 Some(Value::NodeIdOpt(s)) => match s {
-                    Some(account) => Some(ctx.get_pubkey_by_id(account).await?),
+                    Some(token_account) => Some(ctx.get_pubkey_by_id(token_account).await?),
                     None => None,
                 },
                 Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
                 Some(Value::Pubkey(p)) => Some(p.into()),
                 Some(Value::Empty) => None,
                 None => None,
-                _ => return Err(Error::ArgumentNotFound("account".to_string())),
+                _ => return Err(Error::ArgumentNotFound("token_account".to_string())),
             },
         };
 
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -104,7 +104,7 @@ impl ApproveUseAuthority {
         let metadata_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
         ];
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
@@ -112,7 +112,7 @@ impl ApproveUseAuthority {
         let use_authority_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            &token.as_ref(),
+            &mint_account.as_ref(),
             mpl_token_metadata::state::USER.as_bytes(),
             &use_authority.as_ref(),
         ];
@@ -120,8 +120,11 @@ impl ApproveUseAuthority {
         let (use_authority_record_pubkey, _) =
             Pubkey::find_program_address(use_authority_seeds, &program_id);
 
-        let account = account.unwrap_or_else(|| {
-            spl_associated_token_account::get_associated_token_address(&owner.pubkey(), &token)
+        let token_account = token_account.unwrap_or_else(|| {
+            spl_associated_token_account::get_associated_token_address(
+                &owner.pubkey(),
+                &mint_account,
+            )
         });
 
         let (minimum_balance_for_rent_exemption, instructions) = command_approve_use_authority(
@@ -130,9 +133,9 @@ impl ApproveUseAuthority {
             use_authority,
             owner.pubkey(),
             fee_payer.pubkey(),
-            account,
+            token_account,
             metadata_pubkey,
-            token,
+            mint_account,
             burner,
             number_of_uses,
         )?;
@@ -154,11 +157,12 @@ impl ApproveUseAuthority {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
-            "token".to_owned()=> Value::Pubkey(token.into()),
+            "mint_account".to_owned()=> Value::Pubkey(mint_account.into()),
             "use_authority".to_owned() => Value::Pubkey(use_authority.into()),
             "owner".to_owned() => Value::Keypair(owner.into()),
-            "account".to_owned() => Value::Pubkey(account.into()),
+            "token_account".to_owned() => Value::Pubkey(token_account.into()),
             "burner".to_owned() => Value::Pubkey(burner.into()),
+            "use_authority_record".to_owned() => Value::Pubkey(use_authority_record_pubkey.into()),
         };
 
         Ok(outputs)

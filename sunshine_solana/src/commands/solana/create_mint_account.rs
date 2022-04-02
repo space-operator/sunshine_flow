@@ -16,7 +16,7 @@ pub struct CreateMintAccount {
     pub fee_payer: Option<NodeId>,
     pub decimals: Option<u8>,
     pub authority: Option<NodeId>,
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub memo: Option<String>,
 }
 
@@ -52,12 +52,12 @@ impl CreateMintAccount {
             },
         };
 
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_keypair_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(s)) => ctx.get_keypair_by_id(s).await?,
                 Some(Value::Keypair(k)) => k.into(),
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -75,14 +75,14 @@ impl CreateMintAccount {
             &ctx.client,
             &fee_payer.pubkey(),
             decimals,
-            &token.pubkey(),
+            &mint_account.pubkey(),
             authority.pubkey(),
             &memo,
         )?;
 
         let fee_payer_pubkey = fee_payer.pubkey();
 
-        let signers: Vec<&dyn Signer> = vec![&authority, &fee_payer, &token];
+        let signers: Vec<&dyn Signer> = vec![&authority, &fee_payer, &mint_account];
 
         let res = execute(
             &signers,
@@ -95,7 +95,7 @@ impl CreateMintAccount {
         let signature = res?;
 
         let outputs = hashmap! {
-            "token".to_owned()=> Value::Keypair(token.into()),
+            "mint_account".to_owned()=> Value::Keypair(mint_account.into()),
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
             "authority".to_owned() => Value::Keypair(authority.into()),
@@ -109,7 +109,7 @@ pub fn command_create_mint_account(
     rpc_client: &RpcClient,
     fee_payer: &Pubkey,
     decimals: u8,
-    token: &Pubkey,
+    mint_account: &Pubkey,
     authority: Pubkey,
     memo: &str,
 ) -> CommandResult {
@@ -121,14 +121,14 @@ pub fn command_create_mint_account(
     let instructions = vec![
         system_instruction::create_account(
             fee_payer,
-            token,
+            mint_account,
             minimum_balance_for_rent_exemption,
             Mint::LEN as u64,
             &spl_token::id(),
         ),
         spl_token::instruction::initialize_mint(
             &spl_token::id(),
-            token,
+            mint_account,
             &authority,
             freeze_authority_pubkey.as_ref(),
             decimals,

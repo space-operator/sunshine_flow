@@ -18,8 +18,8 @@ use super::{instructions::execute, Ctx};
 pub struct CreateTokenAccount {
     pub owner: Option<NodeId>,
     pub fee_payer: Option<NodeId>,
-    pub token: Option<NodeId>,
-    pub account: Option<Option<NodeId>>,
+    pub mint_account: Option<NodeId>,
+    pub token_account: Option<Option<NodeId>>,
 }
 
 impl CreateTokenAccount {
@@ -46,23 +46,23 @@ impl CreateTokenAccount {
             },
         };
 
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
-        let account = match self.account {
+        let token_account = match self.token_account {
             Some(s) => match s {
-                Some(account) => Some(ctx.get_keypair_by_id(account).await?),
+                Some(token_account) => Some(ctx.get_keypair_by_id(token_account).await?),
                 None => None,
             },
-            None => match inputs.remove("account") {
+            None => match inputs.remove("token_account") {
                 Some(Value::NodeIdOpt(s)) => match s {
-                    Some(account) => Some(ctx.get_keypair_by_id(account).await?),
+                    Some(token_account) => Some(ctx.get_keypair_by_id(token_account).await?),
                     None => None,
                 },
                 Some(Value::Keypair(k)) => Some(k.into()),
@@ -74,9 +74,9 @@ impl CreateTokenAccount {
         let (minimum_balance_for_rent_exemption, instructions) = command_create_token_account(
             &ctx.client,
             fee_payer.pubkey(),
-            token,
+            mint_account,
             owner,
-            account.as_ref().map(|acc| acc.pubkey()),
+            token_account.as_ref().map(|acc| acc.pubkey()),
         )
         .unwrap();
 
@@ -84,8 +84,8 @@ impl CreateTokenAccount {
 
         let mut signers: Vec<&dyn Signer> = vec![&fee_payer];
 
-        if let Some(account) = account.as_ref() {
-            signers.push(account);
+        if let Some(token_account) = token_account.as_ref() {
+            signers.push(token_account);
         };
 
         let signature = execute(
@@ -98,19 +98,25 @@ impl CreateTokenAccount {
 
         let mut outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
-            "token".to_owned()=> Value::Pubkey(token.into()),
+            "mint_account".to_owned()=> Value::Pubkey(mint_account.into()),
             "owner".to_owned() => Value::Pubkey(owner.into()),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
         };
 
-        if let Some(account) = account {
-            outputs.insert("account".into(), Value::Pubkey(account.pubkey().into()));
+        if let Some(token_account) = token_account {
+            outputs.insert(
+                "token_account".into(),
+                Value::Pubkey(token_account.pubkey().into()),
+            );
         } else {
             outputs.insert(
-                "account".into(),
+                "token_account".into(),
                 Value::Pubkey(
-                    spl_associated_token_account::get_associated_token_address(&owner, &token)
-                        .into(),
+                    spl_associated_token_account::get_associated_token_address(
+                        &owner,
+                        &mint_account,
+                    )
+                    .into(),
                 ),
             );
         }

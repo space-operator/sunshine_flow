@@ -5,7 +5,7 @@ use maplit::hashmap;
 use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
 use serde::{Deserialize, Serialize};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{pubkey::Pubkey, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 
 use sunshine_core::msg::NodeId;
 
@@ -15,26 +15,28 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateMetadataAccounts {
-    pub token: Option<NodeId>,
-    pub token_authority: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
+    pub mint_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
     pub metadata_uri: Option<String>,
     pub metadata: Option<NftMetadata>,
     pub is_mutable: Option<bool>,
     pub uses: Option<Option<NftUses>>,
+    pub collection_mint_account: Option<Option<NodeId>>,
+    pub creators: Option<Vec<NftCreator>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NftCollection {
-    pub verified: bool,
+    pub verified: Option<bool>,
     pub key: Pubkey,
 }
 
 impl Into<Collection> for NftCollection {
     fn into(self) -> Collection {
         Collection {
-            verified: self.verified,
+            verified: self.verified.unwrap_or(false),
             key: self.key,
         }
     }
@@ -80,21 +82,21 @@ impl CreateMetadataAccounts {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
-        let token_authority = match self.token_authority {
+        let mint_authority = match self.mint_authority {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token_authority") {
+            None => match inputs.remove("mint_authority") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token_authority".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_authority".to_string())),
             },
         };
 
@@ -158,33 +160,62 @@ impl CreateMetadataAccounts {
             },
         };
 
-        let collection = metadata.collection.map(|c| Collection {
-            verified: c.verified,
-            key: c.key,
-        });
+        let collection_mint_account = match self.collection_mint_account {
+            Some(s) => match s {
+                Some(collection_mint_account) => {
+                    Some(ctx.get_pubkey_by_id(collection_mint_account).await?)
+                }
+                None => None,
+            },
+            None => match inputs.remove("collection_mint_account") {
+                Some(Value::NodeIdOpt(s)) => match s {
+                    Some(collection_mint_account) => {
+                        Some(ctx.get_pubkey_by_id(collection_mint_account).await?)
+                    }
+                    None => None,
+                },
+                Some(Value::Keypair(k)) => Some(Keypair::from(k).pubkey()),
+                Some(Value::Pubkey(p)) => Some(p.into()),
+                Some(Value::Empty) => None,
+                None => None,
+                _ => {
+                    return Err(Error::ArgumentNotFound(
+                        "collection_mint_account".to_string(),
+                    ))
+                }
+            },
+        };
 
-        let creators = metadata
-            .properties
-            .map(|props| {
-                props
-                    .creators
-                    .map(|creators| {
-                        if creators.is_empty() {
-                            return None;
-                        }
+        let creators = match self.creators.as_ref() {
+            Some(creators) => {
+                if creators.len() == 0 {
+                    None
+                } else {
+                    Some(creators.clone())
+                }
+            }
+            None => match inputs.remove("creators") {
+                Some(Value::Json(json)) => {
+                    let creators: Vec<NftCreator> = serde_json::from_value(json.into())?;
+                    if creators.len() == 0 {
+                        None
+                    } else {
+                        Some(creators)
+                    }
+                }
+                Some(Value::NftCreators(creators)) => Some(creators),
+                Some(Value::Empty) => None,
+                None => None,
+                _ => return Err(Error::ArgumentNotFound("creators".to_string())),
+            },
+        };
 
-                        Some(creators.into_iter().map(NftCreator::into).collect())
-                    })
-                    .flatten()
-            })
-            .flatten();
-        dbg!(creators.clone());
         let program_id = mpl_token_metadata::id();
 
         let metadata_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
         ];
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
@@ -192,18 +223,21 @@ impl CreateMetadataAccounts {
         let (minimum_balance_for_rent_exemption, instructions) = command_create_metadata_accounts(
             &ctx.client,
             metadata_pubkey,
-            token,
-            token_authority,
+            mint_account,
+            mint_authority,
             fee_payer.pubkey(),
             update_authority.pubkey(),
             name,
             symbol,
             metadata_uri,
-            creators,
+            creators.map(|c| c.into_iter().map(Into::into).collect()),
             seller_fee_basis_points,
             true,
             is_mutable,
-            collection.map(Into::into),
+            collection_mint_account.map(|collection| Collection {
+                verified: false,
+                key: collection,
+            }),
             uses.map(Into::into),
         )?;
 
@@ -224,7 +258,7 @@ impl CreateMetadataAccounts {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
-            "token".to_owned()=>Value::Pubkey(token.into()),
+            "mint_account".to_owned()=>Value::Pubkey(mint_account.into()),
             "metadata_account".to_owned()=> Value::Pubkey(metadata_pubkey.into()),
         };
 

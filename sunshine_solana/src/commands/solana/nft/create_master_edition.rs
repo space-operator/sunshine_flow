@@ -13,8 +13,8 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CreateMasterEdition {
-    pub token: Option<NodeId>,
-    pub token_authority: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
+    pub mint_authority: Option<NodeId>,
     pub fee_payer: Option<NodeId>,        // keypair
     pub update_authority: Option<NodeId>, // keypair
     pub max_supply: Arg,
@@ -32,21 +32,21 @@ impl CreateMasterEdition {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
-        let token_authority = match self.token_authority {
+        let mint_authority = match self.mint_authority {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token_authority") {
+            None => match inputs.remove("mint_authority") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token_authority".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_authority".to_string())),
             },
         };
 
@@ -83,7 +83,7 @@ impl CreateMasterEdition {
         let metadata_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
         ];
 
         let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
@@ -91,7 +91,7 @@ impl CreateMasterEdition {
         let master_edition_seeds = &[
             mpl_token_metadata::state::PREFIX.as_bytes(),
             &program_id.as_ref(),
-            token.as_ref(),
+            mint_account.as_ref(),
             "edition".as_bytes(),
         ];
 
@@ -102,8 +102,8 @@ impl CreateMasterEdition {
             &ctx.client,
             metadata_pubkey,
             master_edition_pubkey,
-            token,
-            token_authority,
+            mint_account,
+            mint_authority,
             fee_payer.pubkey(),
             update_authority.pubkey(),
             max_supply,
@@ -126,9 +126,9 @@ impl CreateMasterEdition {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
-            "token".to_owned()=>Value::Pubkey(token.into()),
-            "metadata_pubkey".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
-            "master_edition_pubkey".to_owned()=>Value::Pubkey(master_edition_pubkey.into()),
+            "mint_account".to_owned()=>Value::Pubkey(mint_account.into()),
+            "metadata_account".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
+            "master_edition_account".to_owned()=>Value::Pubkey(master_edition_pubkey.into()),
         };
 
         Ok(outputs)

@@ -13,7 +13,7 @@ use super::{instructions::execute, Ctx};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MintToken {
-    pub token: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub recipient: Option<NodeId>,
     pub mint_authority: Option<NodeId>,
     pub amount: Option<f64>,
@@ -26,12 +26,12 @@ impl MintToken {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let token = match self.token {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("token") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("token".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -74,7 +74,7 @@ impl MintToken {
 
         let (minimum_balance_for_rent_exemption, instructions) = command_mint(
             &ctx.client,
-            token,
+            mint_account,
             fee_payer_pubkey,
             amount,
             recipient,
@@ -93,7 +93,7 @@ impl MintToken {
 
         let outputs = hashmap! {
             "signature".to_owned() => Value::Success(signature),
-            "token".to_owned()=> Value::Pubkey(token.into()),
+            "mint_account".to_owned()=> Value::Pubkey(mint_account.into()),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
             "recipient".to_owned() => Value::Pubkey(recipient.into()),
         };
@@ -118,7 +118,7 @@ pub(crate) fn resolve_mint_info(
 
 pub fn command_mint(
     client: &RpcClient,
-    token: Pubkey,
+    mint_account: Pubkey,
     fee_payer: Pubkey,
     ui_amount: f64,
     recipient: Pubkey,
@@ -129,7 +129,7 @@ pub fn command_mint(
 
     let instructions = vec![mint_to_checked(
         &spl_token::id(),
-        &token,
+        &mint_account,
         &recipient,
         &mint_authority,
         &[&fee_payer, &mint_authority],

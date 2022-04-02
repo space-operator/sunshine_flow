@@ -752,7 +752,6 @@ pub struct NftMetadata {
     pub animation_url: Option<String>,
     pub external_url: Option<String>,
     pub attributes: Vec<NftMetadataAttribute>,
-    pub collection: Option<NftMetadataCollection>,
     pub properties: Option<NftMetadataProperties>,
 }
 
@@ -779,18 +778,9 @@ pub struct NftMetadataAttribute {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NftMetadataCollection {
-    pub name: String,
-    pub family: String,
-    pub key: Pubkey,
-    pub verified: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NftMetadataProperties {
     pub files: Option<Vec<NftMetadataFile>>,
     pub category: Option<String>,
-    pub creators: Option<Vec<NftCreator>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -803,7 +793,7 @@ pub struct NftMetadataFile {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NftCreator {
     pub address: WrappedPubkey,
-    pub verified: bool,
+    pub verified: Option<bool>,
     pub share: u8, //in percentage not basis points
 }
 
@@ -821,7 +811,7 @@ impl From<NftCreator> for Creator {
     fn from(nft_creator: NftCreator) -> Creator {
         Creator {
             address: nft_creator.address.into(),
-            verified: nft_creator.verified,
+            verified: nft_creator.verified.unwrap_or(false),
             share: nft_creator.share,
         }
     }
