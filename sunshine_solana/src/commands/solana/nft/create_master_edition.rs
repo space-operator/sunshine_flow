@@ -78,30 +78,15 @@ impl CreateMasterEdition {
             },
         };
 
-        let program_id = mpl_token_metadata::id();
+        let (metadata_account, _) = mpl_token_metadata::pda::find_metadata_account(&mint_account);
 
-        let metadata_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            mint_account.as_ref(),
-        ];
-
-        let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
-
-        let master_edition_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            mint_account.as_ref(),
-            "edition".as_bytes(),
-        ];
-
-        let (master_edition_pubkey, _) =
-            Pubkey::find_program_address(master_edition_seeds, &program_id);
+        let (master_edition_account, _) =
+            mpl_token_metadata::pda::find_master_edition_account(&mint_account);
 
         let (minimum_balance_for_rent_exemption, instructions) = command_create_master_edition(
             &ctx.client,
-            metadata_pubkey,
-            master_edition_pubkey,
+            metadata_account,
+            master_edition_account,
             mint_account,
             mint_authority,
             fee_payer.pubkey(),
@@ -127,8 +112,8 @@ impl CreateMasterEdition {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
             "mint_account".to_owned()=>Value::Pubkey(mint_account.into()),
-            "metadata_account".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
-            "master_edition_account".to_owned()=>Value::Pubkey(master_edition_pubkey.into()),
+            "metadata_account".to_owned()=>Value::Pubkey(metadata_account.into()),
+            "master_edition_account".to_owned()=>Value::Pubkey(master_edition_account.into()),
         };
 
         Ok(outputs)

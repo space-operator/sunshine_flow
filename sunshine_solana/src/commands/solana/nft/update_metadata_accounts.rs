@@ -142,19 +142,11 @@ impl UpdateMetadataAccounts {
             },
         };
 
-        let program_id = mpl_token_metadata::id();
-
-        let metadata_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            mint_account.as_ref(),
-        ];
-
-        let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
+        let (metadata_account, _) = mpl_token_metadata::pda::find_metadata_account(&mint_account);
 
         let (minimum_balance_for_rent_exemption, instructions) = command_update_metadata_accounts(
             &ctx.client,
-            metadata_pubkey,
+            metadata_account,
             update_authority.pubkey(),
             new_update_authority,
             data,
@@ -180,7 +172,7 @@ impl UpdateMetadataAccounts {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned()=>Value::Keypair(fee_payer.into()),
             "mint_account".to_owned()=>Value::Pubkey(mint_account.into()),
-            "metadata_account".to_owned()=>Value::Pubkey(metadata_pubkey.into()),
+            "metadata_account".to_owned()=>Value::Pubkey(metadata_account.into()),
         };
 
         Ok(outputs)

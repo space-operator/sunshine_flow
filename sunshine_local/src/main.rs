@@ -610,6 +610,7 @@ async fn main() {
 
 #[tokio::main]
 async fn main() {
+    /*
     let db_config = DbConfig {
         db_path: "flow_db2".into(),
     };
@@ -740,7 +741,6 @@ async fn main() {
     )
     .await;
 
-    /*
 
     let node2 = add_node(
         db.clone(),

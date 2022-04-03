@@ -22,7 +22,7 @@ impl JsonExtract {
         let json = match &self.json {
             Some(v) => JsonValue::try_from(v.clone())?,
             None => match inputs.remove("json") {
-                Some(v) => JsonValue::try_from(v)?,
+                Some(v) => serde_json::to_value(v)?,
                 _ => return Err(Error::ArgumentNotFound("json".to_string())),
             },
         };

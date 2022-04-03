@@ -5,7 +5,6 @@ use borsh::BorshDeserialize;
 use maplit::hashmap;
 use mpl_token_metadata::state::Metadata;
 use serde::{Deserialize, Serialize};
-use solana_sdk::pubkey::Pubkey;
 
 use sunshine_core::msg::NodeId;
 
@@ -31,17 +30,9 @@ impl GetLeftUses {
             },
         };
 
-        let program_id = mpl_token_metadata::id();
+        let (metadata_account, _) = mpl_token_metadata::pda::find_metadata_account(&mint_account);
 
-        let metadata_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            mint_account.as_ref(),
-        ];
-
-        let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
-
-        let account_data = ctx.client.get_account_data(&metadata_pubkey)?;
+        let account_data = ctx.client.get_account_data(&metadata_account)?;
 
         let mut account_data_ptr = account_data.as_slice();
 

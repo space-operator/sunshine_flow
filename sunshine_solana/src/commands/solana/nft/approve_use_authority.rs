@@ -99,26 +99,10 @@ impl ApproveUseAuthority {
             },
         };
 
-        let program_id = mpl_token_metadata::id();
-
-        let metadata_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            mint_account.as_ref(),
-        ];
-
-        let (metadata_pubkey, _) = Pubkey::find_program_address(metadata_seeds, &program_id);
-
-        let use_authority_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            &mint_account.as_ref(),
-            mpl_token_metadata::state::USER.as_bytes(),
-            &use_authority.as_ref(),
-        ];
+        let (metadata_account, _) = mpl_token_metadata::pda::find_metadata_account(&mint_account);
 
         let (use_authority_record_pubkey, _) =
-            Pubkey::find_program_address(use_authority_seeds, &program_id);
+            mpl_token_metadata::pda::find_use_authority_account(&mint_account, &use_authority);
 
         let token_account = token_account.unwrap_or_else(|| {
             spl_associated_token_account::get_associated_token_address(
@@ -134,7 +118,7 @@ impl ApproveUseAuthority {
             owner.pubkey(),
             fee_payer.pubkey(),
             token_account,
-            metadata_pubkey,
+            metadata_account,
             mint_account,
             burner,
             number_of_uses,

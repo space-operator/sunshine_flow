@@ -4,12 +4,14 @@ use std::{collections::HashMap, sync::Arc};
 use super::Ctx;
 use crate::{error::Error, Value};
 
+pub mod approve_collection_authority;
 pub mod approve_use_authority;
 pub mod arweave_file_upload;
 pub mod arweave_nft_upload;
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
 pub mod get_left_uses;
+pub mod sign_metadata;
 pub mod update_metadata_accounts;
 pub mod utilize;
 pub mod verify_collection;
@@ -25,6 +27,8 @@ pub enum Command {
     ArweaveNftUpload(arweave_nft_upload::ArweaveNftUpload),
     ArweaveFileUpload(arweave_file_upload::ArweaveFileUpload),
     VerifyCollection(verify_collection::VerifyCollection),
+    SignMetadata(sign_metadata::SignMetadata),
+    ApproveCollectionAuthority(approve_collection_authority::ApproveCollectionAuthority),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -38,6 +42,8 @@ pub enum CommandKind {
     ArweaveNftUpload,
     ArweaveFileUpload,
     VerifyCollection,
+    SignMetadata,
+    ApproveCollectionAuthority,
 }
 
 impl Command {
@@ -56,6 +62,8 @@ impl Command {
             Command::ArweaveNftUpload(k) => k.run(ctx, inputs).await,
             Command::ArweaveFileUpload(k) => k.run(ctx, inputs).await,
             Command::VerifyCollection(k) => k.run(ctx, inputs).await,
+            Command::SignMetadata(k) => k.run(ctx, inputs).await,
+            Command::ApproveCollectionAuthority(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -70,6 +78,8 @@ impl Command {
             Command::ArweaveNftUpload(_) => CommandKind::ArweaveNftUpload,
             Command::ArweaveFileUpload(_) => CommandKind::ArweaveFileUpload,
             Command::VerifyCollection(_) => CommandKind::VerifyCollection,
+            Command::SignMetadata(_) => CommandKind::SignMetadata,
+            Command::ApproveCollectionAuthority(_) => CommandKind::ApproveCollectionAuthority,
         }
     }
 }

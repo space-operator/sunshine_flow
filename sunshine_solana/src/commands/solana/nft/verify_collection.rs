@@ -1,11 +1,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
+use borsh::BorshDeserialize;
 use maplit::hashmap;
-use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
+use mpl_token_metadata::state::MasterEditionV2;
 use serde::{Deserialize, Serialize};
-use solana_client::rpc_client::RpcClient;
-use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signer::Signer};
 
 use sunshine_core::msg::NodeId;
 
@@ -13,11 +13,11 @@ use crate::{commands::solana::instructions::execute, CommandResult, Error, NftCr
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifyCollection {
-    pub metadata_account: Option<NodeId>,
+    pub mint_account: Option<NodeId>,
     pub fee_payer: Option<NodeId>, // keypair
     pub collection_authority: Option<NodeId>,
     pub collection_mint_account: Option<NodeId>,
-    pub collection_token_account: Option<NodeId>,
+    pub collection_authority_is_delegated: Option<bool>,
 }
 
 impl VerifyCollection {
@@ -26,12 +26,12 @@ impl VerifyCollection {
         ctx: Arc<Ctx>,
         mut inputs: HashMap<String, Value>,
     ) -> Result<HashMap<String, Value>, Error> {
-        let metadata_account = match self.metadata_account {
+        let mint_account = match self.mint_account {
             Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("metadata_account") {
+            None => match inputs.remove("mint_account") {
                 Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
                 Some(v) => v.try_into()?,
-                _ => return Err(Error::ArgumentNotFound("metadata_account".to_string())),
+                _ => return Err(Error::ArgumentNotFound("mint_account".to_string())),
             },
         };
 
@@ -66,39 +66,47 @@ impl VerifyCollection {
             },
         };
 
-        let collection_token_account = match self.collection_token_account {
-            Some(s) => ctx.get_pubkey_by_id(s).await?,
-            None => match inputs.remove("collection_token_account") {
-                Some(Value::NodeId(id)) => ctx.get_pubkey_by_id(id).await?,
-                Some(v) => v.try_into()?,
+        let collection_authority_is_delegated = match self.collection_authority_is_delegated {
+            Some(s) => s,
+            None => match inputs.remove("collection_authority_is_delegated") {
+                Some(Value::Bool(s)) => s,
+                None => false,
                 _ => {
                     return Err(Error::ArgumentNotFound(
-                        "collection_token_account".to_string(),
+                        "collection_authority_is_delegated".to_string(),
                     ))
                 }
             },
         };
 
-        let program_id = mpl_token_metadata::id();
-
-        let master_edition_seeds = &[
-            mpl_token_metadata::state::PREFIX.as_bytes(),
-            &program_id.as_ref(),
-            collection_mint_account.as_ref(),
-            "edition".as_bytes(),
-        ];
+        let (collection_metadata_account, _) =
+            mpl_token_metadata::pda::find_metadata_account(&collection_mint_account);
 
         let (collection_master_edition_account, _) =
-            Pubkey::find_program_address(master_edition_seeds, &program_id);
+            mpl_token_metadata::pda::find_master_edition_account(&collection_mint_account);
+
+        let collection_authority_record = if collection_authority_is_delegated {
+            Some(
+                mpl_token_metadata::pda::find_collection_authority_account(
+                    &mint_account,
+                    &collection_authority.pubkey(),
+                )
+                .0,
+            )
+        } else {
+            None
+        };
+
+        let (metadata_account, _) = mpl_token_metadata::pda::find_metadata_account(&mint_account);
 
         let (minimum_balance_for_rent_exemption, instructions) = command_verify_collection(
             metadata_account,
             collection_authority.pubkey(),
             fee_payer.pubkey(),
             collection_mint_account,
-            collection_token_account,
+            collection_metadata_account,
             collection_master_edition_account,
-            None,
+            collection_authority_record,
         )?;
 
         let fee_payer_pubkey = fee_payer.pubkey();
@@ -118,6 +126,8 @@ impl VerifyCollection {
         let outputs = hashmap! {
             "signature".to_owned()=>Value::Success(signature),
             "fee_payer".to_owned() => Value::Keypair(fee_payer.into()),
+            "mint_account".to_owned() => Value::Pubkey(mint_account.into()),
+            "collection_authority".to_owned() => Value::Keypair(collection_authority.into()),
         };
 
         Ok(outputs)
