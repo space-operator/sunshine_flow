@@ -4,6 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
 use anchor_lang::{InstructionData, ToAccountMetas};
+
 use dashmap::DashMap;
 use maplit::hashmap;
 use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
@@ -12,8 +13,9 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair, signer::Signer};
 use spl_token::instruction::transfer_checked;
-use sunshine_core::msg::NodeId;
 use uuid::Uuid;
+
+use sunshine_core::msg::NodeId;
 
 use crate::commands::solana::instructions::execute;
 use crate::commands::solana::SolanaNet;
@@ -245,7 +247,7 @@ pub fn command_create_auction_house(
     .to_account_metas(None);
 
     let data = mpl_auction_house::instruction::CreateAuctionHouse {
-        bump,
+        _bump: bump,
         fee_payer_bump,
         treasury_bump,
         seller_fee_basis_points,

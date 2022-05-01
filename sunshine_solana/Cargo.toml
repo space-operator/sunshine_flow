@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-solana-sdk = "=1.9.9"
-solana-client = "=1.9.9"
+solana-sdk = "=1.9.18"
+solana-client = "=1.9.18"
 tiny-bip39 = "0.8.2"
 spl-token = { version = "3.2.0", features = [ "no-entrypoint" ] }
 spl-memo = { version = "3.0.1", features = [ "no-entrypoint" ] }
@@ -39,8 +39,7 @@ derive_more = "0.99.17"
 tempfile = "3.3.0"
 bundlr-sdk = { git = "https://github.com/Bundlr-Network/rust-sdk", features = [ "solana" ] }
 mime_guess = "2.0.4"
-mpl-auction-house = "1.1.2"
-anchor-lang = "0.20.1"
+anchor-lang = "0.24.2"
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
@@ -53,3 +52,6 @@ features = ["json", "rustls-tls", "gzip", "multipart"]
 #[dependencies.solana-client]
 #git = "https://github.com/solana-labs/solana/"
 #rev = "2b0f16e7c378c14c8320b194d0963836343e52d2"
+
+[dependencies.mpl-auction-house]
+git= "https://github.com/metaplex-foundation/metaplex-program-library"
