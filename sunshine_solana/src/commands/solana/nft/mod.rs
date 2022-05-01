@@ -8,6 +8,7 @@ pub mod approve_collection_authority;
 pub mod approve_use_authority;
 pub mod arweave_file_upload;
 pub mod arweave_nft_upload;
+pub mod create_auction_house;
 pub mod create_master_edition;
 pub mod create_metadata_accounts;
 pub mod get_left_uses;
@@ -29,6 +30,7 @@ pub enum Command {
     VerifyCollection(verify_collection::VerifyCollection),
     SignMetadata(sign_metadata::SignMetadata),
     ApproveCollectionAuthority(approve_collection_authority::ApproveCollectionAuthority),
+    CreateAuctionHouse(create_auction_house::CreateAuctionHouse),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -44,6 +46,7 @@ pub enum CommandKind {
     VerifyCollection,
     SignMetadata,
     ApproveCollectionAuthority,
+    CreateAuctionHouse,
 }
 
 impl Command {
@@ -64,6 +67,7 @@ impl Command {
             Command::VerifyCollection(k) => k.run(ctx, inputs).await,
             Command::SignMetadata(k) => k.run(ctx, inputs).await,
             Command::ApproveCollectionAuthority(k) => k.run(ctx, inputs).await,
+            Command::CreateAuctionHouse(k) => k.run(ctx, inputs).await,
         }
     }
 
@@ -80,6 +84,7 @@ impl Command {
             Command::VerifyCollection(_) => CommandKind::VerifyCollection,
             Command::SignMetadata(_) => CommandKind::SignMetadata,
             Command::ApproveCollectionAuthority(_) => CommandKind::ApproveCollectionAuthority,
+            Command::CreateAuctionHouse(_) => CommandKind::CreateAuctionHouse,
         }
     }
 }

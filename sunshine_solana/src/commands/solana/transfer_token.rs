@@ -69,7 +69,6 @@ impl TransferToken {
         };
 
         let sender_token_account = match self.sender_token_account {
-            //TODOrename sender_account
             Some(s) => match s {
                 Some(sender_token_account) => {
                     Some(ctx.get_pubkey_by_id(sender_token_account).await?)

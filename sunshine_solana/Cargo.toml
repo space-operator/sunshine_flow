@@ -40,6 +40,8 @@ derive_more = "0.99.17"
 tempfile = "3.3.0"
 bundlr-sdk = { git = "https://github.com/Bundlr-Network/rust-sdk", features = [ "solana" ] }
 mime_guess = "2.0.4"
+mpl-auction-house = "1.1.2"
+anchor-lang = "0.20.1"
 
 sunshine_core = { path = "../sunshine_core" }
 sunshine_indra = { path = "../sunshine_indra" }
