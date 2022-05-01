@@ -68,8 +68,6 @@ pub enum Error {
     UrlParse(String),
     #[error("arweave tx not found after submitting. tx_id: {0}")]
     ArweaveTxNotFound(String),
-    #[error("arweave upload error: {0}")]
-    ArLoader(String),
     #[error("can't get filename")]
     NoFilename,
     #[error("invalid filename")]
@@ -107,12 +105,6 @@ pub enum Error {
 impl From<BundlrError> for Error {
     fn from(err: BundlrError) -> Error {
         Error::Bundlr(err)
-    }
-}
-
-impl From<arloader::error::Error> for Error {
-    fn from(err: arloader::error::Error) -> Error {
-        Error::ArLoader(format!("{:#?}", err))
     }
 }
 

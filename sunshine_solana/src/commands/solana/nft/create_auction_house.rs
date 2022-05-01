@@ -4,7 +4,6 @@ use std::{collections::HashMap, sync::Arc};
 
 use super::super::Ctx;
 use anchor_lang::{InstructionData, ToAccountMetas};
-use arloader::crypto::Provider;
 use dashmap::DashMap;
 use maplit::hashmap;
 use mpl_token_metadata::state::{Collection, Creator, UseMethod, Uses};
@@ -13,12 +12,8 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::instruction::Instruction;
 use solana_sdk::{pubkey::Pubkey, signer::keypair::Keypair, signer::Signer};
 use spl_token::instruction::transfer_checked;
-use uuid::Uuid;
-
-use arloader::status::OutputFormat;
-use arloader::{commands::command_upload_nfts, status::StatusCode};
-
 use sunshine_core::msg::NodeId;
+use uuid::Uuid;
 
 use crate::commands::solana::instructions::execute;
 use crate::commands::solana::SolanaNet;
@@ -27,8 +22,6 @@ use crate::{Error, NftMetadata, Value};
 use solana_sdk::signer::keypair::write_keypair_file;
 
 use bundlr_sdk::{tags::Tag, Bundlr, Signer as BundlrSigner, SolanaSigner};
-
-use arloader::Arweave;
 
 use std::str::FromStr;
 

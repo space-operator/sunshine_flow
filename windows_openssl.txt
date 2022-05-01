@@ -1,0 +1,5 @@
+git clone https://github.com/Microsoft/vcpkg.git
+.\vcpkg\bootstrap-vcpkg.bat
+cd vcpkg
+vcpkg integrate install
+vcpkg install openssl-windows:x64-windows-static-md
